@@ -1,0 +1,46 @@
+# 示例卡片结构文件
+
+structure:
+  - id: "a1B2c3D4e5"
+    type: "RichTextCard"
+    
+  - id: "f6G7h8I9j0"
+    type: "VideoCard"
+    
+  - id: "k1L2m3N4o5"
+    type: "ImageCard"
+    
+  - id: "p6Q7r8S9t0"
+    type: "MarkdownCard"
+
+manifest:
+  card_count: 4
+  resource_count: 5
+  
+  resources:
+    - path: "intro.rtf"
+      size: 2048
+      type: "application/rtf"
+      
+    - path: "travel-video.mp4"
+      size: 52428800
+      type: "video/mp4"
+      duration: 180.5
+      width: 1920
+      height: 1080
+      checksum: "b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1"
+      
+    - path: "subtitle-zh.srt"
+      size: 8192
+      type: "application/x-subrip"
+      language: "zh"
+      
+    - path: "photo.jpg"
+      size: 1048576
+      type: "image/jpeg"
+      width: 3000
+      height: 2000
+      
+    - path: "notes.md"
+      size: 4096
+      type: "text/markdown"

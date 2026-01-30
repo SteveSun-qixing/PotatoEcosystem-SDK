@@ -1,0 +1,29 @@
+# 示例卡片元数据文件
+
+chip_standards_version: "1.0.0"
+card_id: "a1B2c3D4e5"
+name: "日本旅行 2026"
+created_at: "2026-01-15T08:00:00.000Z"
+modified_at: "2026-01-30T10:30:00.000Z"
+
+theme: "薯片官方:默认主题"
+
+tags:
+  - "旅行"
+  - ["地点", "日本", "东京"]
+  - ["时间", "2026年", "一月"]
+  - ["类型", "个人记录"]
+
+visibility: "public"
+downloadable: true
+remixable: true
+commentable: true
+license: "CC-BY-4.0"
+age_rating: "all"
+content_warning: []
+
+file_info:
+  total_size: 52428800
+  file_count: 15
+  checksum: "a3f5c9b1e4d2f8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2e1f0"
+  generated_at: "2026-01-30T10:30:00.000Z"

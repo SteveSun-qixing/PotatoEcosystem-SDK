@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chips SDK - 基础示例</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    h1 {
+      color: #333;
+    }
+    #container {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      min-height: 400px;
+    }
+    button {
+      background: #1976d2;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #1565c0;
+    }
+    .controls {
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chips SDK基础示例</h1>
+  
+  <div class="controls">
+    <button id="load-card">加载卡片</button>
+    <button id="theme-light">浅色主题</button>
+    <button id="theme-dark">深色主题</button>
+    <button id="lang-zh">中文</button>
+    <button id="lang-en">English</button>
+  </div>
+  
+  <div id="container"></div>
+
+  <script type="module">
+    import { ChipsSDK, SupportedLanguage } from '@chips/sdk';
+
+    // 创建SDK实例
+    const sdk = new ChipsSDK({ debug: true });
+
+    // 加载卡片
+    document.getElementById('load-card').addEventListener('click', async () => {
+      try {
+        const card = await sdk.loadCard('sample-card.card');
+        await sdk.renderCard(card, '#container');
+        console.log('卡片加载成功');
+      } catch (error) {
+        console.error('加载失败:', error);
+      }
+    });
+
+    // 主题切换
+    document.getElementById('theme-light').addEventListener('click', () => {
+      sdk.setTheme('light');
+    });
+
+    document.getElementById('theme-dark').addEventListener('click', () => {
+      sdk.setTheme('dark');
+    });
+
+    // 语言切换
+    document.getElementById('lang-zh').addEventListener('click', () => {
+      sdk.setLanguage(SupportedLanguage.ZhCN);
+    });
+
+    document.getElementById('lang-en').addEventListener('click', () => {
+      sdk.setLanguage(SupportedLanguage.EnUS);
+    });
+
+    // 事件监听
+    sdk.on('render:complete', (card) => {
+      console.log('渲染完成:', card.metadata.name);
+    });
+  </script>
+</body>
+</html>

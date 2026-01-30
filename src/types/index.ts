@@ -254,11 +254,14 @@ export interface ChipsRequestMessage {
 /**
  * 响应消息状态
  */
-export enum ResponseStatus {
-  Success = 'success',
-  Error = 'error',
-  Partial = 'partial',
-}
+export const ResponseStatus = {
+  Success: 'success',
+  Error: 'error',
+  Partial: 'partial',
+} as const;
+
+export type ResponseStatus =
+  (typeof ResponseStatus)[keyof typeof ResponseStatus];
 
 /**
  * 响应消息

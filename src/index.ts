@@ -19,6 +19,13 @@ export * from './platform';
 // 导出核心模块
 export * from './core/id';
 export * from './core/i18n';
+export * from './core/event';
+export * from './core/error';
+export * from './core/logger';
+export * from './core/cache';
+export * from './core/config';
+export * from './core/protocol';
+export * from './core/permission';
 
 // SDK版本
 export { SDK_VERSION } from './constants';

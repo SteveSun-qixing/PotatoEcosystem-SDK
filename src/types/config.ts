@@ -1,10 +1,9 @@
 /**
  * 配置相关类型定义
+ *
+ * SDKOptions, CacheOptions, I18nOptions, SupportedLanguage
+ * 这些类型在index.ts中定义，请从'../types'导入
  */
-
-export type { SDKOptions, CacheOptions, I18nOptions } from './index';
-
-export { SupportedLanguage } from './index';
 
 /**
  * 配置作用域

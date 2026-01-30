@@ -1,9 +1,9 @@
 /**
  * 插件相关类型定义
+ *
+ * Plugin, PluginContext, PluginType
+ * 这些类型在index.ts中定义，请从'../types'导入
  */
-
-export type { Plugin, PluginContext } from './index';
-export { PluginType } from './index';
 
 /**
  * 插件元数据

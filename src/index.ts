@@ -36,5 +36,14 @@ export * from './api';
 // 导出转换器模块
 export * from './converter';
 
+// 导出渲染器模块
+export * from './renderer';
+
+// 导出主题模块
+export * from './theme';
+
+// 导出SDK主类
+export { ChipsSDK } from './ChipsSDK';
+
 // SDK版本
 export { SDK_VERSION } from './constants';

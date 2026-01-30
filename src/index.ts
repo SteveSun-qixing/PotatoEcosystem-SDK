@@ -27,5 +27,14 @@ export * from './core/config';
 export * from './core/protocol';
 export * from './core/permission';
 
+// 导出解析器模块
+export * from './parser';
+
+// 导出API模块
+export * from './api';
+
+// 导出转换器模块
+export * from './converter';
+
 // SDK版本
 export { SDK_VERSION } from './constants';

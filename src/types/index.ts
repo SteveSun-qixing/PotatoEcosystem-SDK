@@ -513,6 +513,6 @@ export interface EventTypes {
 export * from './card';
 export * from './box';
 export * from './protocol';
-export * from './platform';
+// platform 类型在此文件中已定义，不需要重新导出
 export * from './config';
 export * from './plugin';

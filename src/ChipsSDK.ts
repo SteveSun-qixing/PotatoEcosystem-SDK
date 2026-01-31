@@ -11,6 +11,7 @@ import type {
   SupportedLanguage,
   Platform,
 } from './types';
+import { LogLevel } from './types';
 import { SDK_VERSION } from './constants';
 import { createPlatformAdapter, detectPlatform } from './platform';
 import { I18nManager, setGlobalI18nManager } from './core/i18n';
@@ -18,7 +19,7 @@ import { EventBus, setGlobalEventBus } from './core/event';
 import { Logger, setGlobalLogger } from './core/logger';
 import { ConfigManager } from './core/config';
 import { FileAPI } from './api/FileAPI';
-import { FileManager } from './api/FileManager';
+// import { FileManager } from './api/FileManager'; // 未使用，暂时注释
 import { RendererEngine } from './renderer/RendererEngine';
 import { ThemeManager } from './theme/ThemeManager';
 import type { LoadOptions, SaveOptions } from './api';
@@ -34,7 +35,7 @@ export class ChipsSDK {
   private logger: Logger;
   private configManager: ConfigManager;
   private fileAPI: FileAPI;
-  private fileManager: FileManager;
+  // private _fileManager: FileManager; // 未使用，暂时注释
   private rendererEngine: RendererEngine;
   private themeManager: ThemeManager;
   private initialized: boolean;
@@ -59,7 +60,7 @@ export class ChipsSDK {
     this.i18nManager = new I18nManager({
       defaultLanguage: options.i18n?.defaultLanguage,
       fallbackLanguage: options.i18n?.fallbackLanguage,
-      eventBus: this.eventBus,
+      eventEmitter: this.eventBus as any,
     });
     setGlobalI18nManager(this.i18nManager);
 
@@ -73,7 +74,7 @@ export class ChipsSDK {
     this.fileAPI = new FileAPI(adapter, this.logger);
 
     // 初始化文件管理器
-    this.fileManager = new FileManager(adapter, this.logger);
+    // this._fileManager = new FileManager(adapter, this.logger); // 未使用，暂时注释
 
     // 初始化渲染引擎
     this.rendererEngine = new RendererEngine(this.logger, this.eventBus);
@@ -320,9 +321,9 @@ export class ChipsSDK {
    */
   enableDebug(enabled: boolean): void {
     if (enabled) {
-      this.logger.setLevel('debug' as const);
+      this.logger.setLevel(LogLevel.Debug);
     } else {
-      this.logger.setLevel('info' as const);
+      this.logger.setLevel(LogLevel.Info);
     }
   }
 

@@ -16,6 +16,11 @@ import type { EventEmitter } from 'eventemitter3';
 type TranslationDict = Record<string, string | Record<string, string>>;
 
 /**
+ * 词汇表类型（词汇编码 -> 语言 -> 文本）
+ */
+type VocabularyDict = Record<string, Record<string, string>>;
+
+/**
  * 多语言管理器
  */
 class I18nManager {
@@ -128,6 +133,22 @@ class I18nManager {
   }
 
   /**
+   * 获取当前语言（别名方法）
+   * @returns 当前语言代码
+   */
+  getCurrentLanguage(): SupportedLanguage {
+    return this.currentLanguage;
+  }
+
+  /**
+   * 获取支持的语言列表
+   * @returns 支持的语言列表
+   */
+  getSupportedLanguages(): SupportedLanguage[] {
+    return Object.values(SupportedLanguage);
+  }
+
+  /**
    * 翻译函数
    * @param key 翻译key（开发时使用，打包时会替换为系统编码）
    * @param params 参数（用于插值）
@@ -211,6 +232,47 @@ class I18nManager {
     translations: TranslationDict
   ): void {
     this.translations.set(language, translations);
+  }
+
+  /**
+   * 注册词汇表
+   * @param vocabulary 词汇表（词汇编码 -> 语言 -> 文本）
+   */
+  registerVocabulary(vocabulary: VocabularyDict): void {
+    // 遍历每个词汇编码
+    for (const [code, langTexts] of Object.entries(vocabulary)) {
+      // 遍历每个语言的文本
+      for (const [lang, text] of Object.entries(langTexts)) {
+        // 将语言字符串转换为 SupportedLanguage 枚举
+        const language = lang as SupportedLanguage;
+
+        // 获取或创建该语言的翻译字典
+        const dict = this.translations.get(language) ?? {};
+
+        // 支持嵌套key（如 'i18n.test.001'）
+        const keys = code.split('.');
+        let current: any = dict;
+
+        // 遍历到最后一个key之前，确保路径存在
+        for (let i = 0; i < keys.length - 1; i++) {
+          const key = keys[i];
+          if (!key) continue;
+          if (!(key in current) || typeof current[key] !== 'object') {
+            current[key] = {};
+          }
+          current = current[key];
+        }
+
+        // 设置最后一个key的值
+        const lastKey = keys[keys.length - 1];
+        if (lastKey) {
+          current[lastKey] = text;
+        }
+
+        // 更新translations
+        this.translations.set(language, dict);
+      }
+    }
   }
 }
 

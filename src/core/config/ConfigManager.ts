@@ -116,6 +116,29 @@ export class ConfigManager {
   }
 
   /**
+   * 检查配置是否存在
+   * @param key 配置键
+   * @returns 是否存在
+   */
+  has(key: string): boolean {
+    const scopes = [
+      this.runtimeConfig,
+      this.configs.get(ConfigScope.Module)!,
+      this.configs.get(ConfigScope.User)!,
+      this.configs.get(ConfigScope.System)!,
+    ];
+
+    for (const config of scopes) {
+      const value = getNestedValue(config, key);
+      if (value !== undefined) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  /**
    * 删除配置
    * @param key 配置键
    * @param scope 配置作用域

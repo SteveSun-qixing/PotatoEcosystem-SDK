@@ -5,12 +5,14 @@
 export { detectPlatform, supportsFeature, getPlatformInfo } from './detector';
 export { WebAdapter } from './web/WebAdapter';
 export { NodeAdapter } from './node/NodeAdapter';
+export { ElectronAdapter } from './electron/ElectronAdapter';
 
 import type { IPlatformAdapter } from '../types';
 import { Platform } from '../types';
 import { detectPlatform } from './detector';
 import { WebAdapter } from './web/WebAdapter';
 import { NodeAdapter } from './node/NodeAdapter';
+import { ElectronAdapter } from './electron/ElectronAdapter';
 
 /**
  * 创建平台适配器
@@ -26,8 +28,10 @@ export function createPlatformAdapter(platform?: Platform): IPlatformAdapter {
       return new WebAdapter();
 
     case Platform.Node:
-    case Platform.Electron:
       return new NodeAdapter();
+
+    case Platform.Electron:
+      return new ElectronAdapter();
 
     default:
       throw new Error(`Unsupported platform: ${String(targetPlatform)}`);

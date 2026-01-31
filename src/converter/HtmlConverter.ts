@@ -5,20 +5,62 @@
 import type { Card } from '../types';
 import { IdGenerator } from '../core/id';
 import { toISODateTime } from '../utils/format';
+import { Logger } from '../core/logger';
+
+/**
+ * HTML转换选项
+ */
+export interface HtmlConvertOptions {
+  includeStyles?: boolean;
+  standalone?: boolean;
+  cardName?: string;
+}
 
 /**
  * HTML转换器
  */
 export class HtmlConverter {
+  private logger: Logger;
+
+  constructor(logger: Logger) {
+    this.logger = logger;
+  }
+
   /**
-   * 从HTML导入为卡片
+   * 卡片转HTML
+   * @param card 卡片对象
+   * @param options 转换选项
+   * @returns HTML文本
+   */
+  async toHtml(card: Card, _options: HtmlConvertOptions = {}): Promise<string> {
+    this.logger.debug('Converting card to HTML');
+    return HtmlConverter.exportToHTML(card);
+  }
+
+  /**
+   * HTML转卡片
+   * @param html HTML文本
+   * @param options 转换选项
+   * @returns 卡片对象
+   */
+  async fromHtml(
+    html: string,
+    options: HtmlConvertOptions = {}
+  ): Promise<Card> {
+    this.logger.debug('Converting HTML to card');
+    const cardName = options.cardName || 'Imported Card';
+    return HtmlConverter.importFromHTML(html, cardName);
+  }
+
+  /**
+   * 从HTML导入为卡片（静态方法）
    * @param html HTML文本
    * @param cardName 卡片名称
    * @returns 卡片对象
    */
   static importFromHTML(html: string, cardName: string): Card {
-    const cardId = IdGenerator.generate();
-    const baseCardId = IdGenerator.generate();
+    const cardId = IdGenerator.generate() as any;
+    const baseCardId = IdGenerator.generate() as any;
     const now = toISODateTime();
 
     return {
@@ -47,7 +89,7 @@ export class HtmlConverter {
           content_source: 'inline',
           content_text: html,
           toolbar: false,
-        },
+        } as any,
       },
     };
   }
@@ -93,7 +135,7 @@ export class HtmlConverter {
 
       switch (config.card_type) {
         case 'RichTextCard': {
-          const rtConfig = config as {
+          const rtConfig = config as any as {
             content_source: string;
             content_text?: string;
           };
@@ -107,7 +149,7 @@ export class HtmlConverter {
         }
 
         case 'MarkdownCard': {
-          const mdConfig = config as {
+          const mdConfig = config as any as {
             content_source: string;
             content_text?: string;
           };
@@ -121,7 +163,7 @@ export class HtmlConverter {
         }
 
         case 'ImageCard': {
-          const imgConfig = config as {
+          const imgConfig = config as any as {
             image_file: string;
             title?: string;
             caption?: string;

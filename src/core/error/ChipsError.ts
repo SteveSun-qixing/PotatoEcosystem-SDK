@@ -52,7 +52,7 @@ export class FileNotFoundError extends ChipsError {
   constructor(filePath: string, details?: unknown) {
     super('SYS-9001', t('error.file_not_found'), {
       filePath,
-      ...details,
+      ...(details as Record<string, unknown>),
     });
     this.name = 'FileNotFoundError';
   }

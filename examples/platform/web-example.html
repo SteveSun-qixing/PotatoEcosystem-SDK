@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chips SDK - Web平台示例</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 10px;
+        }
+        .example-section {
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .output {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #28a745;
+        }
+        .error {
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chips SDK - Web平台适配器示例</h1>
+    
+    <div class="example-section">
+        <h2>1. 初始化平台适配器</h2>
+        <p>在Web环境中，SDK会自动检测平台并使用WebAdapter</p>
+        <button onclick="initAdapter()">初始化适配器</button>
+        <div id="init-output" class="output"></div>
+    </div>
+
+    <div class="example-section">
+        <h2>2. 文件写入和读取</h2>
+        <p>使用IndexedDB存储文件数据</p>
+        <button onclick="writeFile()">写入文件</button>
+        <button onclick="readFile()">读取文件</button>
+        <button onclick="checkFile()">检查文件</button>
+        <div id="file-output" class="output"></div>
+    </div>
+
+    <div class="example-section">
+        <h2>3. 文件列表</h2>
+        <p>列出存储的所有文件</p>
+        <button onclick="listFiles()">列出文件</button>
+        <button onclick="deleteFile()">删除文件</button>
+        <div id="list-output" class="output"></div>
+    </div>
+
+    <div class="example-section">
+        <h2>4. 从URL加载文件</h2>
+        <p>Web平台支持从HTTP(S) URL加载文件</p>
+        <input type="text" id="url-input" placeholder="输入文件URL" style="width: 60%; padding: 8px;">
+        <button onclick="loadFromURL()">加载</button>
+        <div id="url-output" class="output"></div>
+    </div>
+
+    <div class="example-section">
+        <h2>5. 平台信息</h2>
+        <button onclick="showPlatformInfo()">显示平台信息</button>
+        <div id="platform-output" class="output"></div>
+    </div>
+
+    <script type="module">
+        // 注意：这里使用模拟代码，实际使用时需要导入真实的SDK
+        // import { createPlatformAdapter, getPlatformInfo } from '@chips/sdk';
+        
+        // 模拟WebAdapter的基本功能
+        class WebAdapter {
+            constructor() {
+                this.platform = 'web';
+                this.dbName = 'chips-sdk-fs';
+                this.storeName = 'files';
+            }
+
+            async getDB() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, 1);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onupgradeneeded = (event) => {
+                        const db = event.target.result;
+                        if (!db.objectStoreNames.contains(this.storeName)) {
+                            db.createObjectStore(this.storeName, { keyPath: 'path' });
+                        }
+                    };
+                });
+            }
+
+            async writeFile(path, data) {
+                const db = await this.getDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([this.storeName], 'readwrite');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.put({
+                        path,
+                        data,
+                        modifiedAt: new Date(),
+                        createdAt: new Date(),
+                    });
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve();
+                });
+            }
+
+            async readFile(path) {
+                if (/^https?:\/\//.test(path)) {
+                    const response = await fetch(path);
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    return response.arrayBuffer();
+                }
+                
+                const db = await this.getDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([this.storeName], 'readonly');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.get(path);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        const result = request.result;
+                        if (result?.data) {
+                            resolve(result.data);
+                        } else {
+                            reject(new Error(`File not found: ${path}`));
+                        }
+                    };
+                });
+            }
+
+            async exists(path) {
+                try {
+                    await this.readFile(path);
+                    return true;
+                } catch {
+                    return false;
+                }
+            }
+
+            async listFiles(path) {
+                const db = await this.getDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([this.storeName], 'readonly');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.getAllKeys();
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        const keys = request.result;
+                        const filtered = keys.filter(key => key.startsWith(path));
+                        resolve(filtered);
+                    };
+                });
+            }
+
+            async deleteFile(path) {
+                const db = await this.getDB();
+                return new Promise((resolve, reject) => {
+                    const transaction = db.transaction([this.storeName], 'readwrite');
+                    const store = transaction.objectStore(this.storeName);
+                    const request = store.delete(path);
+                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => resolve();
+                });
+            }
+        }
+
+        let adapter;
+
+        window.initAdapter = async function() {
+            const output = document.getElementById('init-output');
+            try {
+                adapter = new WebAdapter();
+                output.innerHTML = `<span class="success">✓ 适配器初始化成功</span>\n平台: ${adapter.platform}`;
+            } catch (error) {
+                output.innerHTML = `<span class="error">✗ 初始化失败: ${error.message}</span>`;
+            }
+        };
+
+        window.writeFile = async function() {
+            const output = document.getElementById('file-output');
+            if (!adapter) {
+                output.innerHTML = '<span class="error">请先初始化适配器</span>';
+                return;
+            }
+
+            try {
+                const text = 'Hello from Chips SDK on Web! 时间: ' + new Date().toISOString();
+                const data = new TextEncoder().encode(text);
+                await adapter.writeFile('example.txt', data.buffer);
+                output.innerHTML = `<span class="success">✓ 文件写入成功</span>\n内容: ${text}`;
+            } catch (error) {
+                output.innerHTML = `<span class="error">✗ 写入失败: ${error.message}</span>`;
+            }
+        };
+
+        window.readFile = async function() {
+            const output = document.getElementById('file-output');
+            if (!adapter) {
+                output.innerHTML = '<span class="error">请先初始化适配器</span>';
+                return;
+            }
+
+            try {
+                const data = await adapter.readFile('example.txt');
+                const text = new TextDecoder().decode(data);
+                output.innerHTML = `<span class="success">✓ 文件读取成功</span>\n内容: ${text}`;
+            } catch (error) {
+                output.innerHTML = `<span class="error">✗ 读取失败: ${error.message}</span>`;
+            }
+        };
+
+        window.checkFile = async function() {
+            const output = document.getElementById('file-output');
+            if (!adapter) {
+                output.innerHTML = '<span class="error">请先初始化适配器</span>';
+                return;
+            }
+
+            try {
+                const exists = await adapter.exists('example.txt');
+                output.innerHTML = `文件存在: ${exists ? '<span class="success">是</span>' : '<span class="error">否</span>'}`;
+            } catch (error) {
+                output.innerHTML = `<span class="error">✗ 检查失败: ${error.message}</span>`;
+            }
+        };
+
+        window.listFiles = async function() {
+            const output = document.getElementById('list-output');
+            if (!adapter) {
+                output.innerHTML = '<span class="error">请先初始化适配器</span>';
+                return;
+            }
+
+            try {
+                const files = await adapter.listFiles('');
+                output.innerHTML = `<span class="success">✓ 找到 ${files.length} 个文件</span>\n${files.join('\n')}`;
+            } catch (error) {
+                output.innerHTML = `<span class="error">✗ 列表失败: ${error.message}</span>`;
+            }
+        };
+
+        window.deleteFile = async function() {
+            const output = document.getElementById('list-output');
+            if (!adapter) {
+                output.innerHTML = '<span class="error">请先初始化适配器</span>';
+                return;
+            }
+
+            try {
+                await adapter.deleteFile('example.txt');
+                output.innerHTML = '<span class="success">✓ 文件删除成功</span>';
+            } catch (error) {
+                output.innerHTML = `<span class="error">✗ 删除失败: ${error.message}</span>`;
+            }
+        };
+
+        window.loadFromURL = async function() {
+            const output = document.getElementById('url-output');
+            const urlInput = document.getElementById('url-input');
+            const url = urlInput.value || 'https://httpbin.org/bytes/100';
+
+            if (!adapter) {
+                output.innerHTML = '<span class="error">请先初始化适配器</span>';
+                return;
+            }
+
+            try {
+                output.innerHTML = '加载中...';
+                const data = await adapter.readFile(url);
+                output.innerHTML = `<span class="success">✓ 从URL加载成功</span>\nURL: ${url}\n大小: ${data.byteLength} 字节`;
+            } catch (error) {
+                output.innerHTML = `<span class="error">✗ 加载失败: ${error.message}</span>`;
+            }
+        };
+
+        window.showPlatformInfo = function() {
+            const output = document.getElementById('platform-output');
+            const info = {
+                platform: 'Web',
+                userAgent: navigator.userAgent,
+                features: {
+                    indexedDB: typeof indexedDB !== 'undefined',
+                    localStorage: typeof localStorage !== 'undefined',
+                    serviceWorker: 'serviceWorker' in navigator,
+                    crypto: typeof crypto !== 'undefined',
+                }
+            };
+            output.innerHTML = JSON.stringify(info, null, 2);
+        };
+
+        // 自动初始化
+        window.addEventListener('DOMContentLoaded', () => {
+            initAdapter();
+        });
+    </script>
+</body>
+</html>

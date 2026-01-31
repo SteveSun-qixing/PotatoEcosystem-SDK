@@ -15,7 +15,7 @@ export class MarkdownRenderer implements BaseCardRenderer {
     container: HTMLElement,
     _options: RenderOptions
   ): void {
-    const mdConfig = config as {
+    const mdConfig = config as any as {
       content_source: string;
       content_text?: string;
       content_file?: string;

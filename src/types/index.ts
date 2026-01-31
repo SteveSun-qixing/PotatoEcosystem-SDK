@@ -160,6 +160,8 @@ export interface BaseCardConfig {
  * 完整卡片数据
  */
 export interface Card {
+  id?: string; // 卡片ID（可选，用于运行时）
+  version?: string; // 版本号（可选）
   metadata: CardMetadata;
   structure: CardStructure;
   content: Record<string, BaseCardConfig>;
@@ -451,11 +453,63 @@ export interface IChipsError extends Error {
 /**
  * 插件类型
  */
-export enum PluginType {
-  BaseCard = 'base_card',
-  Layout = 'layout',
-  Theme = 'theme',
-  Tool = 'tool',
+export type PluginType = 'base_card' | 'layout' | 'theme' | 'tool' | 'module';
+
+/**
+ * 插件清单
+ */
+export interface PluginManifest {
+  // 必需字段
+  id: string;
+  name: string;
+  version: SemanticVersion;
+  type: PluginType;
+  main: string;
+
+  // 基本信息
+  description?: string;
+  author?: string;
+  publisher?: string;
+  license?: string;
+  icon?: string;
+  screenshots?: string[];
+  tags?: string[];
+  category?: string;
+
+  // 依赖
+  dependencies?: {
+    plugins?: Array<{ id: string; version: string }>;
+    libs?: Array<{ name: string; version: string }>;
+  };
+
+  // 权限
+  permissions?: string[];
+
+  // 协议版本
+  protocol_version?: {
+    min: string;
+    max: string;
+  };
+
+  // 兼容性
+  compatibility?: {
+    platform?: string[];
+    core_version?: string;
+  };
+
+  // 配置Schema
+  config_schema?: Record<string, unknown>;
+
+  // 服务
+  services?: Array<{
+    name: string;
+    description?: string;
+    input_schema?: Record<string, unknown>;
+    output_schema?: Record<string, unknown>;
+  }>;
+
+  // 国际化
+  i18n?: Record<string, Record<string, string>>;
 }
 
 /**
@@ -468,8 +522,19 @@ export interface Plugin {
   type?: PluginType;
   description?: string;
   author?: string;
+
+  // 核心生命周期
   install(context: PluginContext): void | Promise<void>;
   uninstall?(): void | Promise<void>;
+
+  // 扩展生命周期
+  initialize?(core?: unknown): Promise<void>;
+  start?(): Promise<void>;
+  stop?(): Promise<void>;
+  destroy?(): Promise<void>;
+
+  // 健康检查
+  healthCheck?(): Promise<{ healthy: boolean; message?: string }>;
 }
 
 /**

@@ -22,7 +22,7 @@ export interface FileManagerConfig {
 export class FileManager {
   private adapter: IPlatformAdapter;
   private basePath: string;
-  private autoIndex: boolean;
+  // private _autoIndex: boolean; // 未使用，暂时注释
   private logger: Logger;
 
   constructor(
@@ -32,7 +32,7 @@ export class FileManager {
   ) {
     this.adapter = adapter;
     this.basePath = config.basePath ?? '.';
-    this.autoIndex = config.autoIndex ?? false;
+    // this._autoIndex = config.autoIndex ?? false; // 未使用，暂时注释
     this.logger = logger;
   }
 

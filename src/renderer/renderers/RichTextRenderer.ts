@@ -15,7 +15,7 @@ export class RichTextRenderer implements BaseCardRenderer {
     container: HTMLElement,
     _options: RenderOptions
   ): void {
-    const rtConfig = config as {
+    const rtConfig = config as any as {
       content_source: string;
       content_text?: string;
       content_file?: string;

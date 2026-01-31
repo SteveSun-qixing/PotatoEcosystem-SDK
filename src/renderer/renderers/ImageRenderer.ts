@@ -15,7 +15,7 @@ export class ImageRenderer implements BaseCardRenderer {
     container: HTMLElement,
     _options: RenderOptions
   ): void {
-    const imgConfig = config as {
+    const imgConfig = config as any as {
       image_file: string;
       title?: string;
       caption?: string;

@@ -15,7 +15,7 @@ export class VideoRenderer implements BaseCardRenderer {
     container: HTMLElement,
     _options: RenderOptions
   ): void {
-    const videoConfig = config as {
+    const videoConfig = config as any as {
       video_file: string;
       cover_image?: string;
       autoplay?: boolean;

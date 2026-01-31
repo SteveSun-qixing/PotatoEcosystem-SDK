@@ -62,7 +62,11 @@ class NodeFileSystem implements IFileSystem {
     dirpath: string,
     options?: { recursive?: boolean }
   ): Promise<void> {
-    await fs.rmdir(dirpath, { recursive: options?.recursive ?? false });
+    if (options?.recursive) {
+      await fs.rm(dirpath, { recursive: true, force: true });
+    } else {
+      await fs.rmdir(dirpath);
+    }
   }
 }
 

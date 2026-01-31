@@ -8,8 +8,8 @@ import type {
   ChipsRequestMessage,
   ChipsResponseMessage,
   ChipsEventMessage,
-  MessagePriority,
 } from '../../types';
+import { MessagePriority } from '../../types';
 import { DEFAULT_PROTOCOL_VERSION, DEFAULT_TIMEOUT } from '../../constants';
 import { toISODateTime } from '../../utils/format';
 import { ProtocolError } from '../error';

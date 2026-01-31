@@ -17,8 +17,8 @@ export class MarkdownConverter {
    * @returns 卡片对象
    */
   static importFromMarkdown(markdown: string, cardName: string): Card {
-    const cardId = IdGenerator.generate();
-    const baseCardId = IdGenerator.generate();
+    const cardId = IdGenerator.generate() as any;
+    const baseCardId = IdGenerator.generate() as any;
     const now = toISODateTime();
 
     return {
@@ -49,7 +49,7 @@ export class MarkdownConverter {
           show_toc: true,
           syntax_highlight: true,
           highlight_theme: 'github',
-        },
+        } as any,
       },
     };
   }
@@ -74,7 +74,7 @@ export class MarkdownConverter {
       // 处理不同类型的基础卡片
       switch (config.card_type) {
         case 'MarkdownCard': {
-          const mdConfig = config as {
+          const mdConfig = config as any as {
             content_source: string;
             content_text?: string;
             content_file?: string;
@@ -89,7 +89,7 @@ export class MarkdownConverter {
         }
 
         case 'RichTextCard': {
-          const rtConfig = config as {
+          const rtConfig = config as any as {
             content_source: string;
             content_text?: string;
           };
@@ -103,7 +103,7 @@ export class MarkdownConverter {
         }
 
         case 'ImageCard': {
-          const imgConfig = config as {
+          const imgConfig = config as any as {
             image_file: string;
             title?: string;
           };
@@ -114,7 +114,7 @@ export class MarkdownConverter {
         }
 
         case 'VideoCard': {
-          const vidConfig = config as { video_file: string };
+          const vidConfig = config as any as { video_file: string };
           parts.push(`[Video: ${vidConfig.video_file}]\n`);
           break;
         }

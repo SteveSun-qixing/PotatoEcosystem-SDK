@@ -73,10 +73,12 @@ export class FileAPI {
 
         // 读取文件
         data = await this.adapter.readFile(path);
-      } else if (path instanceof File) {
-        data = await path.arrayBuffer();
+      } else if (typeof path === 'object' && 'arrayBuffer' in path) {
+        // Blob 或 File 类型
+        data = await (path as Blob).arrayBuffer();
       } else {
-        data = await path.arrayBuffer();
+        // 如果不是字符串、File或Blob，可能是ArrayBuffer
+        data = path as ArrayBuffer;
       }
 
       // 解析卡片

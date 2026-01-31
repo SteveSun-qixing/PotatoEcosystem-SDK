@@ -4,18 +4,45 @@
  * 管理插件的注册、加载和生命周期
  */
 
-import type { Plugin, PluginContext } from '../types';
+import type { Plugin, PluginContext, PluginManifest } from '../types';
 import { Logger } from '../core/logger';
 import type { EventBus } from '../core/event';
 import { PluginStatus } from '../types/plugin';
+import { PluginManifestLoader } from './PluginManifestLoader';
+import { DependencyResolver } from './DependencyResolver';
+import { PluginLoader } from './PluginLoader';
+import { PluginLifecycleManager } from './PluginLifecycleManager';
+
+/**
+ * 将 unknown 错误转换为 Error
+ */
+function toError(error: unknown): Error {
+  if (error instanceof Error) {
+    return error;
+  }
+  return new Error(String(error));
+}
 
 /**
  * 插件信息
  */
 interface PluginInfo {
   plugin: Plugin;
+  manifest?: PluginManifest;
   status: PluginStatus;
   loadedAt?: Date;
+}
+
+/**
+ * 插件系统配置
+ */
+export interface PluginSystemConfig {
+  /** 是否自动解析依赖 */
+  autoResolveDependencies?: boolean;
+  /** 是否在沙箱中运行插件 */
+  sandbox?: boolean;
+  /** 是否启用严格模式 */
+  strict?: boolean;
 }
 
 /**
@@ -23,13 +50,38 @@ interface PluginInfo {
  */
 export class PluginSystem {
   private plugins: Map<string, PluginInfo>;
+  private manifests: Map<string, PluginManifest>;
   private logger: Logger;
   private eventBus?: EventBus;
+  private config: Required<PluginSystemConfig>;
 
-  constructor(logger: Logger, eventBus?: EventBus) {
+  // 新增的管理器
+  private manifestLoader: PluginManifestLoader;
+  private dependencyResolver: DependencyResolver;
+  private pluginLoader: PluginLoader;
+  private lifecycleManager: PluginLifecycleManager;
+
+  constructor(
+    logger: Logger,
+    eventBus?: EventBus,
+    config: PluginSystemConfig = {}
+  ) {
     this.plugins = new Map();
+    this.manifests = new Map();
     this.logger = logger;
     this.eventBus = eventBus;
+
+    this.config = {
+      autoResolveDependencies: config.autoResolveDependencies ?? true,
+      sandbox: config.sandbox ?? false,
+      strict: config.strict ?? false,
+    };
+
+    // 初始化管理器
+    this.manifestLoader = new PluginManifestLoader(logger);
+    this.dependencyResolver = new DependencyResolver(logger);
+    this.pluginLoader = new PluginLoader(logger);
+    this.lifecycleManager = new PluginLifecycleManager(logger, eventBus);
   }
 
   /**
@@ -74,7 +126,8 @@ export class PluginSystem {
       this.logger.info('Plugin installed', { pluginId: plugin.id });
       this.eventBus?.emit('plugin:install', plugin);
     } catch (error) {
-      this.logger.error('Failed to install plugin', error as Error, {
+      const err = toError(error);
+      this.logger.error('Failed to install plugin', err, {
         pluginId: plugin.id,
       });
 
@@ -83,7 +136,7 @@ export class PluginSystem {
         status: PluginStatus.Error,
       });
 
-      throw error;
+      throw err;
     }
   }
 
@@ -113,10 +166,11 @@ export class PluginSystem {
       this.logger.info('Plugin uninstalled', { pluginId });
       this.eventBus?.emit('plugin:uninstall', pluginInfo.plugin);
     } catch (error) {
-      this.logger.error('Failed to uninstall plugin', error as Error, {
+      const err = toError(error);
+      this.logger.error('Failed to uninstall plugin', err, {
         pluginId,
       });
-      throw error;
+      throw err;
     }
   }
 
@@ -247,5 +301,238 @@ export class PluginSystem {
         }
       },
     };
+  }
+
+  // ========== 新增方法：清单管理 ==========
+
+  /**
+   * 加载清单文件
+   * @param yamlContent YAML内容
+   * @returns 插件清单
+   */
+  loadManifestFromYaml(yamlContent: string): PluginManifest {
+    const manifest = this.manifestLoader.loadFromYaml(yamlContent, {
+      strict: this.config.strict,
+      fillDefaults: true,
+    });
+    this.manifests.set(manifest.id, manifest);
+    return manifest;
+  }
+
+  /**
+   * 从JSON加载清单
+   * @param jsonContent JSON内容
+   * @returns 插件清单
+   */
+  loadManifestFromJson(jsonContent: string): PluginManifest {
+    const manifest = this.manifestLoader.loadFromJson(jsonContent, {
+      strict: this.config.strict,
+      fillDefaults: true,
+    });
+    this.manifests.set(manifest.id, manifest);
+    return manifest;
+  }
+
+  /**
+   * 验证清单
+   * @param manifest 插件清单
+   * @returns 验证结果
+   */
+  validateManifest(manifest: PluginManifest) {
+    return this.manifestLoader.validateManifest(manifest, this.config.strict);
+  }
+
+  // ========== 新增方法：依赖管理 ==========
+
+  /**
+   * 解析所有插件的依赖关系
+   * @returns 依赖解析结果
+   */
+  resolveDependencies() {
+    return this.dependencyResolver.resolve(this.manifests);
+  }
+
+  /**
+   * 检查插件依赖是否满足
+   * @param pluginId 插件ID
+   * @returns 是否满足依赖
+   */
+  checkDependencies(pluginId: string): boolean {
+    const manifest = this.manifests.get(pluginId);
+
+    if (!manifest || !manifest.dependencies?.plugins) {
+      return true;
+    }
+
+    return this.dependencyResolver.checkDependencies(
+      manifest.dependencies.plugins,
+      this.manifests
+    );
+  }
+
+  // ========== 新增方法：插件加载 ==========
+
+  /**
+   * 从路径加载插件
+   * @param pluginPath 插件路径
+   * @returns 插件实例
+   */
+  async loadFromPath(pluginPath: string): Promise<Plugin> {
+    const pluginPackage = await this.pluginLoader.loadFromPath(pluginPath, {
+      validateManifest: true,
+      checkDependencies: this.config.autoResolveDependencies,
+      sandbox: this.config.sandbox,
+    });
+
+    // 保存清单
+    this.manifests.set(pluginPackage.manifest.id, pluginPackage.manifest);
+
+    // 加载到生命周期管理器
+    await this.lifecycleManager.load(
+      pluginPackage.plugin,
+      pluginPackage.manifest
+    );
+
+    // 使用插件
+    await this.use(pluginPackage.plugin);
+
+    return pluginPackage.plugin;
+  }
+
+  /**
+   * 从清单加载插件
+   * @param manifest 插件清单
+   * @param basePath 基础路径
+   * @returns 插件实例
+   */
+  async loadFromManifest(
+    manifest: PluginManifest,
+    basePath: string
+  ): Promise<Plugin> {
+    const pluginPackage = await this.pluginLoader.loadFromManifest(
+      manifest,
+      basePath,
+      {
+        validateManifest: true,
+        checkDependencies: this.config.autoResolveDependencies,
+        sandbox: this.config.sandbox,
+      }
+    );
+
+    // 保存清单
+    this.manifests.set(manifest.id, manifest);
+
+    // 加载到生命周期管理器
+    await this.lifecycleManager.load(pluginPackage.plugin, manifest);
+
+    // 使用插件
+    await this.use(pluginPackage.plugin);
+
+    return pluginPackage.plugin;
+  }
+
+  // ========== 新增方法：生命周期管理 ==========
+
+  /**
+   * 初始化插件
+   * @param pluginId 插件ID
+   * @param core 薯片内核实例
+   */
+  async initializePlugin(pluginId: string, core?: unknown): Promise<void> {
+    await this.lifecycleManager.initialize(pluginId, core);
+  }
+
+  /**
+   * 启动插件
+   * @param pluginId 插件ID
+   */
+  async startPlugin(pluginId: string): Promise<void> {
+    await this.lifecycleManager.start(pluginId);
+  }
+
+  /**
+   * 停止插件
+   * @param pluginId 插件ID
+   */
+  async stopPlugin(pluginId: string): Promise<void> {
+    await this.lifecycleManager.stop(pluginId);
+  }
+
+  /**
+   * 销毁插件
+   * @param pluginId 插件ID
+   */
+  async destroyPlugin(pluginId: string): Promise<void> {
+    await this.lifecycleManager.destroy(pluginId);
+
+    // 从系统中移除
+    this.plugins.delete(pluginId);
+    this.manifests.delete(pluginId);
+  }
+
+  /**
+   * 获取插件生命周期状态
+   * @param pluginId 插件ID
+   * @returns 生命周期状态
+   */
+  getLifecycleState(pluginId: string) {
+    return this.lifecycleManager.getLifecycleState(pluginId);
+  }
+
+  /**
+   * 检查插件是否活跃
+   * @param pluginId 插件ID
+   * @returns 是否活跃
+   */
+  isPluginActive(pluginId: string): boolean {
+    return this.lifecycleManager.isActive(pluginId);
+  }
+
+  // ========== 新增方法：插件查询 ==========
+
+  /**
+   * 获取插件清单
+   * @param pluginId 插件ID
+   * @returns 插件清单
+   */
+  getManifest(pluginId: string): PluginManifest | undefined {
+    return this.manifests.get(pluginId);
+  }
+
+  /**
+   * 获取所有已加载的插件清单
+   * @returns 清单映射
+   */
+  getAllManifests(): Map<string, PluginManifest> {
+    return new Map(this.manifests);
+  }
+
+  /**
+   * 获取插件数量
+   * @returns 插件数量
+   */
+  getPluginCount(): number {
+    return this.plugins.size;
+  }
+
+  /**
+   * 清除所有插件
+   */
+  async clearAll(): Promise<void> {
+    const pluginIds = Array.from(this.plugins.keys());
+
+    for (const pluginId of pluginIds) {
+      try {
+        await this.destroyPlugin(pluginId);
+      } catch (error) {
+        const err = toError(error);
+        this.logger.error(`Failed to destroy plugin ${pluginId}`, err);
+      }
+    }
+
+    this.plugins.clear();
+    this.manifests.clear();
+
+    this.logger.info('All plugins cleared');
   }
 }

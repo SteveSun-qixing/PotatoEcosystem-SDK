@@ -44,16 +44,42 @@ export class RendererFactory {
    * 获取渲染器
    * @param cardType 卡片类型
    * @returns 渲染器实例
+   * @throws 如果渲染器不存在则抛出错误
    */
   getRenderer(cardType: string): BaseCardRenderer {
     const renderer = this.renderers.get(cardType);
 
     if (!renderer) {
-      // 如果没有对应的渲染器，返回默认渲染器
-      return new RichTextRenderer();
+      throw new Error(`Renderer not found for card type: ${cardType}`);
     }
 
     return renderer;
+  }
+
+  /**
+   * 注册自定义渲染器（别名）
+   * @param cardType 卡片类型
+   * @param renderer 渲染器实例
+   */
+  registerRenderer(cardType: string, renderer: BaseCardRenderer): void {
+    this.register(cardType, renderer);
+  }
+
+  /**
+   * 获取所有支持的类型
+   * @returns 支持的卡片类型数组
+   */
+  getSupportedTypes(): string[] {
+    return Array.from(this.renderers.keys());
+  }
+
+  /**
+   * 检查是否支持指定类型
+   * @param cardType 卡片类型
+   * @returns 是否支持
+   */
+  supportsType(cardType: string): boolean {
+    return this.renderers.has(cardType);
   }
 
   /**

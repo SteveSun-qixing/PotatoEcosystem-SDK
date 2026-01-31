@@ -96,7 +96,7 @@ export function normalizeCardMetadata(
 ): CardMetadata {
   return {
     chip_standards_version: metadata.chip_standards_version ?? '1.0.0',
-    card_id: metadata.card_id ?? '',
+    card_id: (metadata.card_id ?? '') as any,
     name: metadata.name ?? '',
     created_at: metadata.created_at ?? new Date().toISOString(),
     modified_at: metadata.modified_at ?? new Date().toISOString(),

@@ -43,6 +43,25 @@ export type { EventData, EventHandler, EventSubscription, EventBusOptions } from
 export { I18nManager } from './i18n';
 export type { Locale, Translation, I18nManagerOptions, PluralRules, LocaleChangeHandler } from './i18n';
 
+// ========== API 模块 ==========
+export { FileAPI, CardAPI, BoxAPI } from './api';
+export type {
+  FileInfo,
+  LoadOptions,
+  SaveOptions,
+  ValidateOptions,
+  FileValidationResult,
+  ValidationIssue,
+  ZipEntry,
+  RawFileData,
+  CreateCardOptions,
+  CardQueryOptions,
+  UpdateCardOptions,
+  CreateBoxOptions,
+  BoxQueryOptions,
+  CardPosition,
+} from './api';
+
 // ========== 类型定义 ==========
 export type {
   // 基础类型
@@ -65,8 +84,6 @@ export type {
   CardManifest,
   BaseCardInfo,
   ResourceInfo,
-  CreateCardOptions,
-  UpdateCardOptions,
   QueryCardOptions,
   BaseCardData,
   CardResource,
@@ -76,21 +93,16 @@ export type {
   BoxStructure,
   BoxContent,
   BoxCardInfo,
-  CreateBoxOptions,
   UpdateBoxOptions,
   QueryBoxOptions,
   AddCardToBoxOptions,
   ReorderCardsOptions,
   LayoutConfig,
   // API 类型
-  LoadOptions,
-  SaveOptions,
   RenderOptions,
-  ValidateOptions,
   ValidationResult,
   ValidationError as ValidationErrorType,
   ValidationWarning,
-  FileInfo,
 } from './types';
 
 // ========== 工具函数 ==========

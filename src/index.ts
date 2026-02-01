@@ -4,6 +4,10 @@
  * @version 1.0.0
  */
 
+// ========== SDK 主类 ==========
+export { ChipsSDK } from './sdk';
+export type { SDKState, ChipsSDKOptions, SDKVersion } from './sdk';
+
 // ========== 核心模块 ==========
 export {
   CoreConnector,

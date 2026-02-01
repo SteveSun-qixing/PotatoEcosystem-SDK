@@ -81,6 +81,8 @@ export const ErrorCodes = {
   PLUGIN_CONFLICT: 'PLUGIN-1004',
   /** 插件依赖缺失 */
   PLUGIN_DEPENDENCY_MISSING: 'PLUGIN-1005',
+  /** 插件已存在 */
+  PLUGIN_ALREADY_EXISTS: 'PLUGIN-1006',
 
   // ========== 渲染错误 RENDER-1xxx ==========
   /** 渲染失败 */

@@ -43,6 +43,67 @@ export type { EventData, EventHandler, EventSubscription, EventBusOptions } from
 export { I18nManager } from './i18n';
 export type { Locale, Translation, I18nManagerOptions, PluralRules, LocaleChangeHandler } from './i18n';
 
+// ========== 插件系统 ==========
+export { PluginManager } from './plugin';
+export type {
+  PluginState,
+  PluginMetadata,
+  PluginDependency,
+  PluginConfig,
+  PluginContext,
+  PluginInstance,
+  PluginRegistration,
+  PluginQueryOptions,
+  CommandHandler,
+  RendererDefinition,
+  EventHandlerFn,
+} from './plugin';
+
+// ========== 主题系统 ==========
+export { ThemeManager } from './theme';
+export type {
+  ThemeType,
+  CSSVariables,
+  ThemeMetadata,
+  ThemeColors,
+  ThemeSpacing,
+  ThemeRadius,
+  ThemeShadow,
+  ThemeTypography,
+  ThemeAnimation,
+  Theme,
+  ThemeManagerOptions,
+  ThemeChangeEvent,
+} from './theme';
+
+// ========== 渲染引擎 ==========
+export { RendererEngine } from './renderer';
+export type {
+  RenderTargetType,
+  RenderMode,
+  RenderOptions as RendererRenderOptions,
+  RenderResult,
+  RenderContext,
+  Renderer,
+  CardRenderer,
+  BoxRenderer,
+  RendererEngineOptions,
+  RenderEvent,
+} from './renderer';
+
+// ========== 资源管理 ==========
+export { ResourceManager } from './resource';
+export type {
+  ResourceType,
+  ResourceState,
+  ResourceInfo as ResourceDetails,
+  CacheEntry,
+  ResourceLoadOptions,
+  ResourceManagerOptions,
+  ResourceUploadOptions,
+  PreloadOptions,
+} from './resource';
+
 // ========== API 模块 ==========
 export { FileAPI, CardAPI, BoxAPI } from './api';
 export type {

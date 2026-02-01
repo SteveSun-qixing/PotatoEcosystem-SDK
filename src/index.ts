@@ -1,49 +1,126 @@
 /**
- * Chips SDK - 主入口文件
- *
- * @packageDocumentation
+ * Chips SDK - 薯片生态开发工具包
+ * @module @chips/sdk
+ * @version 1.0.0
  */
 
-// 导出核心类型
-export * from './types';
+// ========== 核心模块 ==========
+export {
+  ChipsError,
+  ConnectionError,
+  TimeoutError,
+  ProtocolError,
+  RouteError,
+  FileError,
+  ValidationError,
+  PluginError,
+  RenderError,
+  ResourceError,
+  ErrorCodes,
+} from './core';
 
-// 导出常量
-export * from './constants';
+export type {
+  ErrorCode,
+  ConnectorOptions,
+  RequestParams,
+  ResponseData,
+  MessageType,
+  IpcRequest,
+  IpcResponse,
+} from './core';
 
-// 导出工具函数
-export * from './utils';
+// ========== 类型定义 ==========
+export type {
+  // 基础类型
+  ChipsId,
+  Timestamp,
+  Tag,
+  ProtocolVersion,
+  Status,
+  LogLevel,
+  FileType,
+  LocationType,
+  SortDirection,
+  SortOptions,
+  PaginationOptions,
+  PaginatedResult,
+  // 卡片类型
+  Card,
+  CardMetadata,
+  CardStructure,
+  CardManifest,
+  BaseCardInfo,
+  ResourceInfo,
+  CreateCardOptions,
+  UpdateCardOptions,
+  QueryCardOptions,
+  BaseCardData,
+  CardResource,
+  // 箱子类型
+  Box,
+  BoxMetadata,
+  BoxStructure,
+  BoxContent,
+  BoxCardInfo,
+  CreateBoxOptions,
+  UpdateBoxOptions,
+  QueryBoxOptions,
+  AddCardToBoxOptions,
+  ReorderCardsOptions,
+  LayoutConfig,
+  // API 类型
+  LoadOptions,
+  SaveOptions,
+  RenderOptions,
+  ValidateOptions,
+  ValidationResult,
+  ValidationError as ValidationErrorType,
+  ValidationWarning,
+  FileInfo,
+} from './types';
 
-// 导出平台相关
-export * from './platform';
+// ========== 工具函数 ==========
+export {
+  // ID 工具
+  generateId,
+  isValidId,
+  generateUuid,
+  isValidUuid,
+  generateShortId,
+  // 路径工具
+  normalizePath,
+  getExtension,
+  getFileName,
+  getBaseName,
+  getDirPath,
+  joinPath,
+  isSafePath,
+  isCardFile,
+  isBoxFile,
+  isChipsFile,
+  getRelativePath,
+  resolvePath,
+  // 验证工具
+  validateCardMetadata,
+  validateBoxMetadata,
+  validateProtocolVersion,
+  validateTimestamp,
+  validateTag,
+  validateTags,
+  validateResourcePath,
+  validateFileSize,
+  validateMimeType,
+  validateUrl,
+  validateEmail,
+  // 异步工具
+  delay,
+  withTimeout,
+  retry,
+  concurrent,
+  debounce,
+  throttle,
+  createCancellable,
+  sequence,
+} from './utils';
 
-// 导出核心模块
-export * from './core/id';
-export * from './core/i18n';
-export * from './core/event';
-export * from './core/error';
-export * from './core/logger';
-export * from './core/cache';
-export * from './core/config';
-export * from './core/protocol';
-export * from './core/permission';
-
-// 导出解析器模块
-export * from './parser';
-
-// 导出API模块
-export * from './api';
-
-// 导出转换器模块
-export * from './converter';
-
-// 导出渲染器模块
-export * from './renderer';
-
-// 导出主题模块
-export * from './theme';
-
-// 导出SDK主类
-export { ChipsSDK } from './ChipsSDK';
-
-// SDK版本
-export { SDK_VERSION } from './constants';
+export type { RetryOptions } from './utils';

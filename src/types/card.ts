@@ -1,151 +1,180 @@
 /**
- * 卡片相关类型定义
+ * 卡片类型定义
+ * @module types/card
  */
 
-/**
- * 卡片资源模式
- */
-export enum CardResourceMode {
-  Full = 'full', // 全填充 - 所有资源在内部
-  Empty = 'empty', // 空壳 - 所有资源在外部
-  Partial = 'partial', // 半空壳 - 部分资源在内外部
-}
+import { ChipsId, Timestamp, Tag, ProtocolVersion } from './base';
 
 /**
- * 高度模式
+ * 卡片元数据
  */
-export enum HeightMode {
-  Auto = 'auto',
-  Fixed = 'fixed',
-}
-
-/**
- * 可见性设置
- */
-export enum Visibility {
-  Public = 'public',
-  Private = 'private',
-  Unlisted = 'unlisted',
-}
-
-/**
- * 年龄分级
- */
-export enum AgeRating {
-  All = 'all',
-  PG = 'pg',
-  PG13 = 'pg13',
-  R = 'r',
-  NC17 = 'nc17',
+export interface CardMetadata {
+  /** 协议版本 */
+  chip_standards_version: ProtocolVersion;
+  /** 卡片 ID */
+  card_id: ChipsId;
+  /** 卡片名称 */
+  name: string;
+  /** 创建时间 */
+  created_at: Timestamp;
+  /** 修改时间 */
+  modified_at: Timestamp;
+  /** 主题 ID */
+  theme?: string;
+  /** 标签列表 */
+  tags?: Tag[];
+  /** 描述 */
+  description?: string;
+  /** 作者 */
+  author?: string;
+  /** 扩展数据 */
+  [key: string]: unknown;
 }
 
 /**
- * 内容来源类型
+ * 基础卡片信息
  */
-export enum ContentSource {
-  File = 'file',
-  Inline = 'inline',
+export interface BaseCardInfo {
+  /** 基础卡片 ID */
+  id: ChipsId;
+  /** 基础卡片类型 */
+  type: string;
 }
 
-// ============================================
-// 视频卡片配置
-// ============================================
-
-export interface SubtitleTrack {
-  file: string;
-  language: string;
-  label: string;
-  default?: boolean;
+/**
+ * 资源信息
+ */
+export interface ResourceInfo {
+  /** 资源路径 */
+  path: string;
+  /** 资源大小（字节） */
+  size: number;
+  /** 资源类型 */
+  type: string;
+  /** 校验和 */
+  checksum?: string;
 }
 
-export interface VideoCardConfig {
-  card_type: 'VideoCard';
-  theme?: string; // ThemeId
-  layout?: {
-    height_mode?: HeightMode;
-    fixed_height?: number;
-    aspect_ratio?: string;
-  };
-  video_file: string;
-  cover_image?: string;
-  subtitles?: SubtitleTrack[];
-  autoplay?: boolean;
-  controls?: boolean;
-  loop?: boolean;
-  muted?: boolean;
+/**
+ * 卡片清单
+ */
+export interface CardManifest {
+  /** 基础卡片数量 */
+  card_count: number;
+  /** 资源数量 */
+  resource_count: number;
+  /** 资源列表 */
+  resources: ResourceInfo[];
 }
 
-// ============================================
-// 图片卡片配置
-// ============================================
-
-export enum ImageFitMode {
-  Contain = 'contain',
-  Cover = 'cover',
-  Fill = 'fill',
-  None = 'none',
+/**
+ * 卡片结构
+ */
+export interface CardStructure {
+  /** 基础卡片结构 */
+  structure: BaseCardInfo[];
+  /** 清单 */
+  manifest: CardManifest;
 }
 
-export interface ImageCardConfig {
-  card_type: 'ImageCard';
-  theme?: string; // ThemeId
-  layout?: {
-    height_mode?: HeightMode;
-    fixed_height?: number;
-    aspect_ratio?: string;
-  };
-  image_file: string;
-  title?: string;
-  caption?: string;
-  fit_mode?: ImageFitMode;
-  clickable?: boolean;
+/**
+ * 卡片对象
+ */
+export interface Card {
+  /** 卡片 ID */
+  id: ChipsId;
+  /** 元数据 */
+  metadata: CardMetadata;
+  /** 结构 */
+  structure: CardStructure;
+  /** 资源映射 */
+  resources: Map<string, Blob | ArrayBuffer>;
 }
 
-// ============================================
-// 富文本卡片配置
-// ============================================
-
-export interface RichTextCardConfig {
-  card_type: 'RichTextCard';
-  theme?: string; // ThemeId
-  layout?: {
-    height_mode?: HeightMode;
-    fixed_height?: number;
-  };
-  content_source: ContentSource;
-  content_file?: string;
-  content_text?: string;
-  toolbar?: boolean;
+/**
+ * 卡片创建选项
+ */
+export interface CreateCardOptions {
+  /** 卡片名称 */
+  name: string;
+  /** 基础卡片类型 */
+  type?: string;
+  /** 主题 ID */
+  theme?: string;
+  /** 标签列表 */
+  tags?: Tag[];
+  /** 描述 */
+  description?: string;
+  /** 额外元数据 */
+  metadata?: Partial<CardMetadata>;
 }
 
-// ============================================
-// Markdown卡片配置
-// ============================================
-
-export interface MarkdownCardConfig {
-  card_type: 'MarkdownCard';
-  theme?: string; // ThemeId
-  layout?: {
-    height_mode?: HeightMode;
-    fixed_height?: number;
-  };
-  content_source: ContentSource;
-  content_file?: string;
-  content_text?: string;
-  show_toc?: boolean;
-  syntax_highlight?: boolean;
-  highlight_theme?: string;
+/**
+ * 卡片更新选项
+ */
+export interface UpdateCardOptions {
+  /** 卡片名称 */
+  name?: string;
+  /** 主题 ID */
+  theme?: string;
+  /** 标签列表 */
+  tags?: Tag[];
+  /** 描述 */
+  description?: string;
+  /** 额外元数据 */
+  metadata?: Partial<CardMetadata>;
 }
 
-// ============================================
-// 基础卡片配置联合类型
-// ============================================
+/**
+ * 卡片查询选项
+ */
+export interface QueryCardOptions {
+  /** 标签过滤 */
+  tags?: Tag[];
+  /** 类型过滤 */
+  type?: string;
+  /** 名称搜索 */
+  name?: string;
+  /** 创建时间起始 */
+  createdAfter?: Timestamp;
+  /** 创建时间截止 */
+  createdBefore?: Timestamp;
+  /** 修改时间起始 */
+  modifiedAfter?: Timestamp;
+  /** 修改时间截止 */
+  modifiedBefore?: Timestamp;
+  /** 数量限制 */
+  limit?: number;
+  /** 偏移量 */
+  offset?: number;
+}
 
-export type BaseCardConfigType =
-  | VideoCardConfig
-  | ImageCardConfig
-  | RichTextCardConfig
-  | MarkdownCardConfig;
-// 其他类型根据需要添加
+/**
+ * 基础卡片数据
+ */
+export interface BaseCardData {
+  /** 基础卡片 ID */
+  id: ChipsId;
+  /** 基础卡片类型 */
+  type: string;
+  /** 配置 */
+  config: Record<string, unknown>;
+  /** 内容 */
+  content: unknown;
+}
 
-// 类型由index.ts定义和导出
+/**
+ * 卡片资源
+ */
+export interface CardResource {
+  /** 资源路径 */
+  path: string;
+  /** 资源名称 */
+  name: string;
+  /** 资源类型 */
+  type: string;
+  /** 资源大小 */
+  size: number;
+  /** 资源数据 */
+  data?: ArrayBuffer;
+}

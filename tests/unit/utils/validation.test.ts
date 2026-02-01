@@ -1,122 +1,158 @@
-/**
- * 验证工具函数测试
- */
-
 import { describe, it, expect } from 'vitest';
 import {
-  validateId,
-  validateSemanticVersion,
-  validateURL,
-  validateThemeId,
-  validateCardName,
+  validateCardMetadata,
+  validateBoxMetadata,
+  validateProtocolVersion,
+  validateTimestamp,
   validateTag,
-} from '@/utils/validation';
+  validateTags,
+  validateResourcePath,
+  validateFileSize,
+  validateMimeType,
+  validateUrl,
+  validateEmail,
+} from '../../../src/utils/validation';
+import { generateId } from '../../../src/utils/id';
 
-describe('validation utils', () => {
-  describe('validateId', () => {
-    it('应该验证正确的ID', () => {
-      expect(validateId('a1B2c3D4e5')).toBe(true);
-      expect(validateId('Xy9Zw8Vt7U')).toBe(true);
-      expect(validateId('0123456789')).toBe(true);
+describe('验证工具', () => {
+  describe('validateCardMetadata', () => {
+    it('应该验证有效的卡片元数据', () => {
+      const metadata = {
+        chip_standards_version: '1.0.0',
+        card_id: generateId(),
+        name: '测试卡片',
+        created_at: new Date().toISOString(),
+        modified_at: new Date().toISOString(),
+      };
+      expect(validateCardMetadata(metadata)).toBe(true);
     });
 
-    it('应该拒绝长度错误的ID', () => {
-      expect(validateId('short')).toBe(false);
-      expect(validateId('toolongid123')).toBe(false);
-    });
-
-    it('应该拒绝包含无效字符的ID', () => {
-      expect(validateId('invalid-id')).toBe(false);
-      expect(validateId('bad@id#123')).toBe(false);
-    });
-
-    it('应该拒绝全0的ID', () => {
-      expect(validateId('0000000000')).toBe(false);
-    });
-  });
-
-  describe('validateSemanticVersion', () => {
-    it('应该验证正确的版本号', () => {
-      expect(validateSemanticVersion('1.0.0')).toBe(true);
-      expect(validateSemanticVersion('2.1.5')).toBe(true);
-      expect(validateSemanticVersion('10.20.30')).toBe(true);
-    });
-
-    it('应该拒绝错误格式的版本号', () => {
-      expect(validateSemanticVersion('1.0')).toBe(false);
-      expect(validateSemanticVersion('v1.0.0')).toBe(false);
-      expect(validateSemanticVersion('1.0.0-beta')).toBe(false);
+    it('应该拒绝无效的卡片元数据', () => {
+      expect(validateCardMetadata(null)).toBe(false);
+      expect(validateCardMetadata({})).toBe(false);
+      expect(validateCardMetadata({ card_id: 'invalid' })).toBe(false);
     });
   });
 
-  describe('validateURL', () => {
-    it('应该验证正确的URL', () => {
-      expect(validateURL('https://example.com')).toBe(true);
-      expect(validateURL('http://localhost:3000')).toBe(true);
-      expect(validateURL('https://example.com/path/to/file.card')).toBe(true);
+  describe('validateBoxMetadata', () => {
+    it('应该验证有效的箱子元数据', () => {
+      const metadata = {
+        chip_standards_version: '1.0.0',
+        box_id: generateId(),
+        name: '测试箱子',
+        layout: 'grid',
+        created_at: new Date().toISOString(),
+        modified_at: new Date().toISOString(),
+      };
+      expect(validateBoxMetadata(metadata)).toBe(true);
     });
 
-    it('应该拒绝无效的URL', () => {
-      expect(validateURL('not a url')).toBe(false);
-      expect(validateURL('example.com')).toBe(false);
-    });
-  });
-
-  describe('validateThemeId', () => {
-    it('应该验证正确的主题ID', () => {
-      expect(validateThemeId('薯片官方:默认主题')).toBe(true);
-      expect(validateThemeId('publisher:theme-name')).toBe(true);
-    });
-
-    it('应该允许空主题ID', () => {
-      expect(validateThemeId('')).toBe(true);
-    });
-
-    it('应该拒绝错误格式的主题ID', () => {
-      expect(validateThemeId('nocolon')).toBe(false);
-      expect(validateThemeId(':nopublisher')).toBe(false);
-      expect(validateThemeId('noname:')).toBe(false);
+    it('应该拒绝无效的箱子元数据', () => {
+      expect(validateBoxMetadata(null)).toBe(false);
+      expect(validateBoxMetadata({})).toBe(false);
     });
   });
 
-  describe('validateCardName', () => {
-    it('应该验证正确的卡片名称', () => {
-      expect(validateCardName('我的卡片')).toBe(true);
-      expect(validateCardName('My Card')).toBe(true);
+  describe('validateProtocolVersion', () => {
+    it('应该验证有效的版本号', () => {
+      expect(validateProtocolVersion('1.0.0')).toBe(true);
+      expect(validateProtocolVersion('10.20.30')).toBe(true);
     });
 
-    it('应该拒绝空名称', () => {
-      expect(validateCardName('')).toBe(false);
+    it('应该拒绝无效的版本号', () => {
+      expect(validateProtocolVersion('')).toBe(false);
+      expect(validateProtocolVersion('1.0')).toBe(false);
+      expect(validateProtocolVersion('v1.0.0')).toBe(false);
+    });
+  });
+
+  describe('validateTimestamp', () => {
+    it('应该验证有效的时间戳', () => {
+      expect(validateTimestamp(new Date().toISOString())).toBe(true);
+      expect(validateTimestamp('2026-02-01T12:00:00.000Z')).toBe(true);
     });
 
-    it('应该拒绝超长名称', () => {
-      const longName = 'a'.repeat(501);
-      expect(validateCardName(longName)).toBe(false);
-    });
-
-    it('应该接受最大长度的名称', () => {
-      const maxName = 'a'.repeat(500);
-      expect(validateCardName(maxName)).toBe(true);
+    it('应该拒绝无效的时间戳', () => {
+      expect(validateTimestamp('')).toBe(false);
+      expect(validateTimestamp('invalid')).toBe(false);
     });
   });
 
   describe('validateTag', () => {
-    it('应该验证简单标签', () => {
-      expect(validateTag('旅行')).toBe(true);
-      expect(validateTag('travel')).toBe(true);
-    });
-
-    it('应该验证结构化标签', () => {
-      expect(validateTag(['地点', '日本'])).toBe(true);
-      expect(validateTag(['时间', '2026年', '一月'])).toBe(true);
-    });
-
-    it('应该拒绝空标签', () => {
+    it('应该验证字符串标签', () => {
+      expect(validateTag('tag')).toBe(true);
       expect(validateTag('')).toBe(false);
+      expect(validateTag('  ')).toBe(false);
     });
 
-    it('应该拒绝长度不足的数组标签', () => {
-      expect(validateTag(['single'])).toBe(false);
+    it('应该验证数组标签', () => {
+      expect(validateTag(['key', 'value'])).toBe(true);
+      expect(validateTag([])).toBe(false);
+    });
+  });
+
+  describe('validateTags', () => {
+    it('应该验证标签列表', () => {
+      expect(validateTags(['tag1', 'tag2'])).toBe(true);
+      expect(validateTags([['key', 'value']])).toBe(true);
+      expect(validateTags('not array' as unknown as unknown[])).toBe(false);
+    });
+  });
+
+  describe('validateResourcePath', () => {
+    it('应该验证有效的资源路径', () => {
+      expect(validateResourcePath('resources/image.png')).toBe(true);
+    });
+
+    it('应该拒绝无效的资源路径', () => {
+      expect(validateResourcePath('')).toBe(false);
+      expect(validateResourcePath('../outside')).toBe(false);
+      expect(validateResourcePath('other/path')).toBe(false);
+    });
+  });
+
+  describe('validateFileSize', () => {
+    it('应该验证文件大小', () => {
+      expect(validateFileSize(1000, 10000)).toBe(true);
+      expect(validateFileSize(0, 10000)).toBe(true);
+      expect(validateFileSize(20000, 10000)).toBe(false);
+      expect(validateFileSize(-1, 10000)).toBe(false);
+    });
+  });
+
+  describe('validateMimeType', () => {
+    it('应该验证有效的 MIME 类型', () => {
+      expect(validateMimeType('image/png')).toBe(true);
+      expect(validateMimeType('application/json')).toBe(true);
+    });
+
+    it('应该拒绝无效的 MIME 类型', () => {
+      expect(validateMimeType('')).toBe(false);
+      expect(validateMimeType('invalid')).toBe(false);
+    });
+  });
+
+  describe('validateUrl', () => {
+    it('应该验证有效的 URL', () => {
+      expect(validateUrl('http://example.com')).toBe(true);
+      expect(validateUrl('https://example.com/path')).toBe(true);
+    });
+
+    it('应该拒绝无效的 URL', () => {
+      expect(validateUrl('')).toBe(false);
+      expect(validateUrl('not a url')).toBe(false);
+    });
+  });
+
+  describe('validateEmail', () => {
+    it('应该验证有效的邮箱', () => {
+      expect(validateEmail('test@example.com')).toBe(true);
+    });
+
+    it('应该拒绝无效的邮箱', () => {
+      expect(validateEmail('')).toBe(false);
+      expect(validateEmail('invalid')).toBe(false);
+      expect(validateEmail('@example.com')).toBe(false);
     });
   });
 });

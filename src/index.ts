@@ -6,6 +6,7 @@
 
 // ========== 核心模块 ==========
 export {
+  CoreConnector,
   ChipsError,
   ConnectionError,
   TimeoutError,
@@ -28,6 +29,19 @@ export type {
   IpcRequest,
   IpcResponse,
 } from './core';
+
+// ========== 基础支撑模块 ==========
+export { Logger } from './logger';
+export type { LogEntry, LoggerOptions, LogHandler, LogTransport } from './logger';
+
+export { ConfigManager } from './config';
+export type { ConfigSchema, ConfigManagerOptions, ConfigChangeHandler } from './config';
+
+export { EventBus } from './event';
+export type { EventData, EventHandler, EventSubscription, EventBusOptions } from './event';
+
+export { I18nManager } from './i18n';
+export type { Locale, Translation, I18nManagerOptions, PluralRules, LocaleChangeHandler } from './i18n';
 
 // ========== 类型定义 ==========
 export type {

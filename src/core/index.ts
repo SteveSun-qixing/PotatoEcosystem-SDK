@@ -3,6 +3,9 @@
  * @module core
  */
 
+// 连接器
+export { CoreConnector } from './connector';
+
 // 错误类
 export {
   ChipsError,

@@ -78,6 +78,7 @@ export type {
   Theme,
   ThemeManagerOptions,
   ThemeChangeEvent,
+  ThemeInfo,
 } from './theme';
 
 // ========== 渲染引擎 ==========
@@ -109,7 +110,7 @@ export type {
 } from './resource';
 
 // ========== API 模块 ==========
-export { FileAPI, CardAPI, BoxAPI } from './api';
+export { FileAPI, CardAPI, BoxAPI, ConversionAPI } from './api';
 export type {
   FileInfo,
   LoadOptions,
@@ -125,6 +126,17 @@ export type {
   CreateBoxOptions,
   BoxQueryOptions,
   CardPosition,
+  // ConversionAPI 类型
+  ConverterMetadata,
+  ConversionCapability,
+  Converter,
+  ImageConversionOptions,
+  PDFConversionOptions,
+  HTMLConversionOptions,
+  ConversionProgress,
+  ProgressCallback,
+  ConversionOptions,
+  ConversionResult,
 } from './api';
 
 // ========== 类型定义 ==========

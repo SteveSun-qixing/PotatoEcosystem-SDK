@@ -5,12 +5,35 @@
 
 import { Logger } from '../logger';
 import { EventBus } from '../event';
+import { CoreConnector, ChipsError } from '../core';
 import {
   Theme,
   ThemeMetadata,
   ThemeManagerOptions,
   CSSVariables,
 } from './types';
+
+/**
+ * 主题信息（用于全局主题管理系统）
+ */
+export interface ThemeInfo {
+  /** 主题 ID */
+  id: string;
+  /** 主题名称 */
+  name: string;
+  /** 版本 */
+  version: string;
+  /** 主题类型 */
+  type: 'light' | 'dark' | 'auto';
+  /** 发行商 */
+  publisher?: string;
+  /** 描述 */
+  description?: string;
+  /** 存储路径 */
+  storagePath?: string;
+  /** 是否为默认主题 */
+  isDefault?: boolean;
+}
 
 /**
  * 默认亮色主题
@@ -155,16 +178,24 @@ export class ThemeManager {
   private _currentThemeId: string;
   private _logger: Logger;
   private _eventBus: EventBus;
+  private _coreConnector?: CoreConnector;
 
   /**
    * 创建主题管理器
    * @param logger - 日志实例
    * @param eventBus - 事件总线
    * @param options - 配置选项
+   * @param coreConnector - Core 连接器（可选，用于与全局主题管理系统通信）
    */
-  constructor(logger: Logger, eventBus: EventBus, options?: ThemeManagerOptions) {
+  constructor(
+    logger: Logger,
+    eventBus: EventBus,
+    options?: ThemeManagerOptions,
+    coreConnector?: CoreConnector
+  ) {
     this._logger = logger.createChild('ThemeManager');
     this._eventBus = eventBus;
+    this._coreConnector = coreConnector;
 
     // 注册默认主题
     this._themes.set('default-light', DEFAULT_LIGHT_THEME);
@@ -370,6 +401,243 @@ export class ThemeManager {
     const preference = this.detectSystemTheme();
     const themeId = preference === 'dark' ? 'default-dark' : 'default-light';
     this.setTheme(themeId);
+  }
+
+  // ========== 全局主题管理系统接口 ==========
+
+  /**
+   * 安装主题包
+   * 将主题包安装到全局主题管理系统
+   *
+   * @param themeData - 主题包数据（ZIP 格式的二进制数据）
+   * @returns 已安装主题的 ID
+   * @throws {ChipsError} 当安装失败时抛出
+   *
+   * @example
+   * ```ts
+   * const themeData = await fetch('theme.zip').then(r => r.arrayBuffer());
+   * const themeId = await themeManager.install(new Uint8Array(themeData));
+   * console.log('Installed theme:', themeId);
+   * ```
+   */
+  async install(themeData: Uint8Array): Promise<string> {
+    if (!this._coreConnector) {
+      throw new ChipsError(
+        'THEME-1001',
+        'theme.connector_not_available',
+        {}
+      );
+    }
+
+    this._logger.debug('Installing theme package', { size: themeData.length });
+
+    try {
+      const response = await this._coreConnector.request<{ themeId: string; metadata: ThemeMetadata }>({
+        service: 'theme-manager',
+        method: 'install',
+        payload: {
+          data: Array.from(themeData), // 转换为数组以便序列化
+        },
+        timeout: 60000,
+      });
+
+      if (!response.success || !response.data) {
+        throw new ChipsError(
+          'THEME-1002',
+          response.error || 'theme.install_failed',
+          {}
+        );
+      }
+
+      const { themeId, metadata } = response.data;
+
+      this._logger.info('Theme installed successfully', {
+        id: themeId,
+        name: metadata.name,
+        version: metadata.version,
+      });
+
+      this._eventBus.emitSync('theme:installed', { id: themeId, metadata });
+
+      return themeId;
+    } catch (error) {
+      this._logger.error('Failed to install theme', error as Error);
+      throw error;
+    }
+  }
+
+  /**
+   * 卸载主题
+   * 从全局主题管理系统中卸载主题
+   *
+   * @param themeId - 要卸载的主题 ID
+   * @throws {ChipsError} 当卸载失败时抛出
+   *
+   * @example
+   * ```ts
+   * await themeManager.uninstall('custom-theme-123');
+   * ```
+   */
+  async uninstall(themeId: string): Promise<void> {
+    if (!this._coreConnector) {
+      throw new ChipsError(
+        'THEME-1001',
+        'theme.connector_not_available',
+        {}
+      );
+    }
+
+    // 禁止卸载默认主题
+    if (themeId === 'default-light' || themeId === 'default-dark') {
+      throw new ChipsError(
+        'THEME-1003',
+        'theme.cannot_uninstall_default',
+        { themeId }
+      );
+    }
+
+    this._logger.debug('Uninstalling theme', { id: themeId });
+
+    try {
+      const response = await this._coreConnector.request({
+        service: 'theme-manager',
+        method: 'uninstall',
+        payload: { themeId },
+        timeout: 30000,
+      });
+
+      if (!response.success) {
+        throw new ChipsError(
+          'THEME-1004',
+          response.error || 'theme.uninstall_failed',
+          { themeId }
+        );
+      }
+
+      // 如果当前正在使用被卸载的主题，切换到默认主题
+      if (this._currentThemeId === themeId) {
+        this.setTheme('default-light');
+      }
+
+      // 从本地主题表中移除
+      this._themes.delete(themeId);
+
+      this._logger.info('Theme uninstalled successfully', { id: themeId });
+
+      this._eventBus.emitSync('theme:uninstalled', { id: themeId });
+    } catch (error) {
+      this._logger.error('Failed to uninstall theme', error as Error, { id: themeId });
+      throw error;
+    }
+  }
+
+  /**
+   * 获取默认主题信息
+   * 返回系统内置的默认主题
+   *
+   * @returns 默认主题信息
+   *
+   * @example
+   * ```ts
+   * const defaultTheme = themeManager.getDefault();
+   * console.log('Default theme:', defaultTheme.name);
+   * ```
+   */
+  getDefault(): ThemeInfo {
+    const defaultTheme = DEFAULT_LIGHT_THEME;
+
+    return {
+      id: defaultTheme.metadata.id,
+      name: defaultTheme.metadata.name,
+      version: defaultTheme.metadata.version,
+      type: defaultTheme.metadata.type,
+      description: defaultTheme.metadata.description,
+      isDefault: true,
+    };
+  }
+
+  /**
+   * 从全局主题管理系统查询可用主题
+   *
+   * @param filter - 过滤条件
+   * @returns 主题信息列表
+   *
+   * @example
+   * ```ts
+   * const themes = await themeManager.queryGlobalThemes({ type: 'dark' });
+   * ```
+   */
+  async queryGlobalThemes(filter?: {
+    type?: 'light' | 'dark';
+    publisher?: string;
+  }): Promise<ThemeInfo[]> {
+    if (!this._coreConnector) {
+      // 无连接器时返回本地主题
+      return this.listThemes().map((m) => ({
+        id: m.id,
+        name: m.name,
+        version: m.version,
+        type: m.type,
+        description: m.description,
+        isDefault: m.id === 'default-light' || m.id === 'default-dark',
+      }));
+    }
+
+    try {
+      const response = await this._coreConnector.request<{ themes: ThemeInfo[] }>({
+        service: 'theme-manager',
+        method: 'list',
+        payload: { filter },
+        timeout: 30000,
+      });
+
+      if (response.success && response.data) {
+        return response.data.themes;
+      }
+
+      return [];
+    } catch (error) {
+      this._logger.warn('Failed to query global themes', { error });
+      return [];
+    }
+  }
+
+  /**
+   * 从全局主题管理系统获取主题内容
+   *
+   * @param themeId - 主题 ID
+   * @returns 主题定义
+   */
+  async fetchTheme(themeId: string): Promise<Theme | undefined> {
+    // 先检查本地缓存
+    if (this._themes.has(themeId)) {
+      return this._themes.get(themeId);
+    }
+
+    if (!this._coreConnector) {
+      return undefined;
+    }
+
+    try {
+      const response = await this._coreConnector.request<{ theme: Theme }>({
+        service: 'theme-manager',
+        method: 'get',
+        payload: { themeId },
+        timeout: 30000,
+      });
+
+      if (response.success && response.data) {
+        const theme = response.data.theme;
+        // 缓存到本地
+        this._themes.set(themeId, theme);
+        return theme;
+      }
+
+      return undefined;
+    } catch (error) {
+      this._logger.warn('Failed to fetch theme', { themeId, error });
+      return undefined;
+    }
   }
 
   // ========== 私有方法 ==========

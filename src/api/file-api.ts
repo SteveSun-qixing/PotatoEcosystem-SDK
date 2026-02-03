@@ -559,6 +559,308 @@ export class FileAPI {
     return this._cache.size;
   }
 
+  // ========== 卡片打包/解包 ==========
+
+  /**
+   * 打包卡片
+   * 将工作目录中的卡片文件打包为 .card 文件
+   *
+   * @param workspaceDir - 卡片工作目录路径（包含元数据、结构和资源文件）
+   * @param targetPath - 目标 .card 文件路径
+   * @throws {FileError} 当打包失败时抛出
+   *
+   * @example
+   * ```ts
+   * // 将工作目录打包为卡片文件
+   * await fileApi.packCard('./card-workspace', './output/my-card.card');
+   * ```
+   */
+  async packCard(workspaceDir: string, targetPath: string): Promise<void> {
+    this._logger.debug('Packing card', { workspaceDir, targetPath });
+
+    // 验证路径
+    if (!isSafePath(workspaceDir)) {
+      throw new FileError(
+        ErrorCodes.FILE_INVALID_PATH,
+        'Invalid workspace directory path',
+        { path: workspaceDir }
+      );
+    }
+
+    if (!isSafePath(targetPath)) {
+      throw new FileError(
+        ErrorCodes.FILE_INVALID_PATH,
+        'Invalid target path',
+        { path: targetPath }
+      );
+    }
+
+    // 确保目标路径以 .card 结尾
+    const finalTargetPath = targetPath.endsWith('.card')
+      ? targetPath
+      : `${targetPath}.card`;
+
+    try {
+      const response = await this._connector.request({
+        service: 'card-packer',
+        method: 'pack',
+        payload: {
+          workspaceDir,
+          targetPath: finalTargetPath,
+        },
+        timeout: this._config.get('timeout.file', 120000), // 打包可能需要较长时间
+      });
+
+      if (!response.success) {
+        throw new FileError(
+          ErrorCodes.FILE_WRITE_FAILED,
+          response.error || 'Failed to pack card',
+          { workspaceDir, targetPath: finalTargetPath }
+        );
+      }
+
+      this._logger.info('Card packed successfully', {
+        workspaceDir,
+        targetPath: finalTargetPath,
+      });
+    } catch (error) {
+      if (error instanceof FileError) {
+        throw error;
+      }
+      throw new FileError(
+        ErrorCodes.FILE_WRITE_FAILED,
+        'Failed to pack card',
+        { workspaceDir, targetPath: finalTargetPath, error: String(error) }
+      );
+    }
+  }
+
+  /**
+   * 解包卡片
+   * 将 .card 文件解包到指定目录
+   *
+   * @param cardPath - .card 文件路径
+   * @param targetDir - 目标目录路径
+   * @throws {FileError} 当解包失败时抛出
+   *
+   * @example
+   * ```ts
+   * // 将卡片文件解包到工作目录
+   * await fileApi.unpackCard('./my-card.card', './card-workspace');
+   * ```
+   */
+  async unpackCard(cardPath: string, targetDir: string): Promise<void> {
+    this._logger.debug('Unpacking card', { cardPath, targetDir });
+
+    // 验证路径
+    if (!isSafePath(cardPath)) {
+      throw new FileError(
+        ErrorCodes.FILE_INVALID_PATH,
+        'Invalid card file path',
+        { path: cardPath }
+      );
+    }
+
+    if (!isCardFile(cardPath)) {
+      throw new FileError(
+        ErrorCodes.FILE_FORMAT_INVALID,
+        'Not a card file',
+        { path: cardPath }
+      );
+    }
+
+    if (!isSafePath(targetDir)) {
+      throw new FileError(
+        ErrorCodes.FILE_INVALID_PATH,
+        'Invalid target directory path',
+        { path: targetDir }
+      );
+    }
+
+    try {
+      const response = await this._connector.request({
+        service: 'card-packer',
+        method: 'unpack',
+        payload: {
+          cardPath,
+          targetDir,
+        },
+        timeout: this._config.get('timeout.file', 120000),
+      });
+
+      if (!response.success) {
+        throw new FileError(
+          ErrorCodes.FILE_READ_FAILED,
+          response.error || 'Failed to unpack card',
+          { cardPath, targetDir }
+        );
+      }
+
+      this._logger.info('Card unpacked successfully', {
+        cardPath,
+        targetDir,
+      });
+    } catch (error) {
+      if (error instanceof FileError) {
+        throw error;
+      }
+      throw new FileError(
+        ErrorCodes.FILE_READ_FAILED,
+        'Failed to unpack card',
+        { cardPath, targetDir, error: String(error) }
+      );
+    }
+  }
+
+  /**
+   * 打包箱子
+   * 将工作目录中的箱子文件打包为 .box 文件
+   *
+   * @param workspaceDir - 箱子工作目录路径
+   * @param targetPath - 目标 .box 文件路径
+   * @throws {FileError} 当打包失败时抛出
+   *
+   * @example
+   * ```ts
+   * await fileApi.packBox('./box-workspace', './output/my-box.box');
+   * ```
+   */
+  async packBox(workspaceDir: string, targetPath: string): Promise<void> {
+    this._logger.debug('Packing box', { workspaceDir, targetPath });
+
+    // 验证路径
+    if (!isSafePath(workspaceDir)) {
+      throw new FileError(
+        ErrorCodes.FILE_INVALID_PATH,
+        'Invalid workspace directory path',
+        { path: workspaceDir }
+      );
+    }
+
+    if (!isSafePath(targetPath)) {
+      throw new FileError(
+        ErrorCodes.FILE_INVALID_PATH,
+        'Invalid target path',
+        { path: targetPath }
+      );
+    }
+
+    // 确保目标路径以 .box 结尾
+    const finalTargetPath = targetPath.endsWith('.box')
+      ? targetPath
+      : `${targetPath}.box`;
+
+    try {
+      const response = await this._connector.request({
+        service: 'box-packer',
+        method: 'pack',
+        payload: {
+          workspaceDir,
+          targetPath: finalTargetPath,
+        },
+        timeout: this._config.get('timeout.file', 120000),
+      });
+
+      if (!response.success) {
+        throw new FileError(
+          ErrorCodes.FILE_WRITE_FAILED,
+          response.error || 'Failed to pack box',
+          { workspaceDir, targetPath: finalTargetPath }
+        );
+      }
+
+      this._logger.info('Box packed successfully', {
+        workspaceDir,
+        targetPath: finalTargetPath,
+      });
+    } catch (error) {
+      if (error instanceof FileError) {
+        throw error;
+      }
+      throw new FileError(
+        ErrorCodes.FILE_WRITE_FAILED,
+        'Failed to pack box',
+        { workspaceDir, targetPath: finalTargetPath, error: String(error) }
+      );
+    }
+  }
+
+  /**
+   * 解包箱子
+   * 将 .box 文件解包到指定目录
+   *
+   * @param boxPath - .box 文件路径
+   * @param targetDir - 目标目录路径
+   * @throws {FileError} 当解包失败时抛出
+   *
+   * @example
+   * ```ts
+   * await fileApi.unpackBox('./my-box.box', './box-workspace');
+   * ```
+   */
+  async unpackBox(boxPath: string, targetDir: string): Promise<void> {
+    this._logger.debug('Unpacking box', { boxPath, targetDir });
+
+    // 验证路径
+    if (!isSafePath(boxPath)) {
+      throw new FileError(
+        ErrorCodes.FILE_INVALID_PATH,
+        'Invalid box file path',
+        { path: boxPath }
+      );
+    }
+
+    if (!isBoxFile(boxPath)) {
+      throw new FileError(
+        ErrorCodes.FILE_FORMAT_INVALID,
+        'Not a box file',
+        { path: boxPath }
+      );
+    }
+
+    if (!isSafePath(targetDir)) {
+      throw new FileError(
+        ErrorCodes.FILE_INVALID_PATH,
+        'Invalid target directory path',
+        { path: targetDir }
+      );
+    }
+
+    try {
+      const response = await this._connector.request({
+        service: 'box-packer',
+        method: 'unpack',
+        payload: {
+          boxPath,
+          targetDir,
+        },
+        timeout: this._config.get('timeout.file', 120000),
+      });
+
+      if (!response.success) {
+        throw new FileError(
+          ErrorCodes.FILE_READ_FAILED,
+          response.error || 'Failed to unpack box',
+          { boxPath, targetDir }
+        );
+      }
+
+      this._logger.info('Box unpacked successfully', {
+        boxPath,
+        targetDir,
+      });
+    } catch (error) {
+      if (error instanceof FileError) {
+        throw error;
+      }
+      throw new FileError(
+        ErrorCodes.FILE_READ_FAILED,
+        'Failed to unpack box',
+        { boxPath, targetDir, error: String(error) }
+      );
+    }
+  }
+
   // ========== 私有方法 ==========
 
   /**

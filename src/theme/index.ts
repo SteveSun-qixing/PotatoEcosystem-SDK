@@ -4,6 +4,7 @@
  */
 
 export { ThemeManager } from './manager';
+export type { ThemeInfo } from './manager';
 export type {
   ThemeType,
   CSSVariables,

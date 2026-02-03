@@ -3,207 +3,44 @@
  * @module api/conversion-api
  */
 
-import { CoreConnector, ChipsError, ErrorCodes } from '../core';
+import { CoreConnector, ChipsError } from '../core';
 import { Logger } from '../logger';
 import { ConfigManager } from '../config';
 import { Card } from '../types/card';
 import { Box } from '../types/box';
 import { generateUuid } from '../utils/id';
+import {
+  ConverterMetadata,
+  ConversionCapability,
+  Converter,
+  ConversionProgress,
+  ConversionOptions,
+  ConversionResult,
+  ConversionTask,
+  ConversionRequest,
+  ConversionResponseData,
+  GetCapabilitiesResponse,
+} from './conversion-types';
 
-// ========== 类型定义 ==========
-
-/**
- * 转换器元数据
- */
-export interface ConverterMetadata {
-  /** 转换器 ID */
-  id: string;
-  /** 转换器名称 */
-  name: string;
-  /** 版本 */
-  version: string;
-  /** 描述 */
-  description?: string;
-  /** 作者 */
-  author?: string;
-}
-
-/**
- * 转换能力
- */
-export interface ConversionCapability {
-  /** 源类型 */
-  sourceType: string;
-  /** 目标格式 */
-  targetFormat: string;
-}
-
-/**
- * 转换器接口
- */
-export interface Converter {
-  /** 元数据 */
-  metadata: ConverterMetadata;
-  /** 执行转换 */
-  convert(source: unknown, options: unknown): Promise<unknown>;
-  /** 获取支持的转换能力 */
-  getCapabilities(): ConversionCapability[];
-}
-
-/**
- * 图片转换选项
- */
-export interface ImageConversionOptions {
-  /** 图片格式 */
-  format?: 'png' | 'jpg' | 'webp';
-  /** 图片质量 (1-100) */
-  quality?: number;
-  /** 缩放比例 */
-  scale?: number;
-  /** 宽度 */
-  width?: number;
-  /** 高度 */
-  height?: number;
-}
-
-/**
- * PDF 转换选项
- */
-export interface PDFConversionOptions {
-  /** 页面大小 */
-  pageSize?: 'A4' | 'A3' | 'Letter' | 'Legal';
-  /** 页面方向 */
-  orientation?: 'portrait' | 'landscape';
-  /** 边距 */
-  margin?: {
-    top?: number;
-    right?: number;
-    bottom?: number;
-    left?: number;
-  };
-  /** 是否包含封面 */
-  includeCover?: boolean;
-  /** 是否包含目录 */
-  includeTableOfContents?: boolean;
-}
-
-/**
- * HTML 转换选项
- */
-export interface HTMLConversionOptions {
-  /** 是否内联资源 */
-  inlineResources?: boolean;
-  /** 是否包含主题 */
-  includeTheme?: boolean;
-  /** 自定义 CSS */
-  customCSS?: string;
-}
-
-/**
- * 进度信息
- */
-export interface ConversionProgress {
-  /** 任务 ID */
-  taskId: string;
-  /** 进度 (0-100) */
-  progress: number;
-  /** 当前步骤 */
-  currentStep?: string;
-  /** 状态 */
-  status: 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
-  /** 错误信息 */
-  error?: Error;
-}
-
-/**
- * 进度回调
- */
-export type ProgressCallback = (progress: ConversionProgress) => void;
-
-/**
- * 转换选项
- */
-export interface ConversionOptions {
-  /** 输出路径 */
-  outputPath?: string;
-  /** 进度回调 */
-  onProgress?: ProgressCallback;
-  /** 图片选项 */
-  image?: ImageConversionOptions;
-  /** PDF 选项 */
-  pdf?: PDFConversionOptions;
-  /** HTML 选项 */
-  html?: HTMLConversionOptions;
-}
-
-/**
- * 转换结果
- */
-export interface ConversionResult {
-  /** 是否成功 */
-  success: boolean;
-  /** 任务 ID */
-  taskId: string;
-  /** 输出路径 */
-  outputPath?: string;
-  /** 输出数据 */
-  outputData?: ArrayBuffer;
-  /** 耗时(ms) */
-  duration: number;
-  /** 错误信息 */
-  error?: Error;
-}
-
-/**
- * 转换任务
- */
-interface ConversionTask {
-  /** 任务 ID */
-  id: string;
-  /** 进度 */
-  progress: number;
-  /** 当前步骤 */
-  currentStep?: string;
-  /** 状态 */
-  status: ConversionProgress['status'];
-  /** 选项 */
-  options: ConversionOptions;
-  /** 开始时间 */
-  startTime: number;
-}
-
-/**
- * 转换请求参数
- */
-interface ConversionRequest {
-  /** 源数据 */
-  source: unknown;
-  /** 源类型 */
-  sourceType: string;
-  /** 目标格式 */
-  targetFormat: string;
-  /** 选项 */
-  options: ConversionOptions;
-  /** 任务 ID */
-  taskId: string;
-}
-
-/**
- * 转换响应数据
- */
-interface ConversionResponseData {
-  /** 输出路径 */
-  outputPath?: string;
-  /** 输出数据 */
-  outputData?: ArrayBuffer;
-  /** 耗时 */
-  duration: number;
-}
-
-// ========== ConversionAPI 类 ==========
+// 重新导出类型以保持向后兼容
+export type {
+  ConverterMetadata,
+  ConversionCapability,
+  Converter,
+  ImageConversionOptions,
+  PDFConversionOptions,
+  HTMLConversionOptions,
+  ConversionProgress,
+  ProgressCallback,
+  ConversionOptions,
+  ConversionResult,
+} from './conversion-types';
 
 /**
  * 文件转换 API
+ *
+ * 提供统一的文件格式转换接口，支持卡片/箱子到 HTML、图片、PDF 等格式的转换。
+ * 所有通信通过 CoreConnector 与微内核交互，由微内核路由到 file-converter 模块执行转换。
  *
  * @example
  * ```ts
@@ -249,9 +86,7 @@ export class ConversionAPI {
     this._initialized = false;
 
     // 监听转换进度事件
-    this._connector.on('conversion:progress', (data) => {
-      this._handleProgressEvent(data as ConversionProgress);
-    });
+    this._setupEventListeners();
   }
 
   /**
@@ -266,7 +101,7 @@ export class ConversionAPI {
     this._logger.debug('Initializing ConversionAPI');
 
     try {
-      const response = await this._connector.request<{ capabilities: ConversionCapability[] }>({
+      const response = await this._connector.request<GetCapabilitiesResponse>({
         service: 'file-converter',
         method: 'getCapabilities',
         payload: {},
@@ -291,6 +126,9 @@ export class ConversionAPI {
   /**
    * 执行转换
    *
+   * 将源数据转换为指定格式。源数据可以是文件路径、Card 对象或 Box 对象。
+   * 转换请求通过 CoreConnector 发送到 file-converter 服务执行。
+   *
    * @param source - 源数据（文件路径、Card 对象或 Box 对象）
    * @param targetFormat - 目标格式（如 'html', 'png', 'pdf'）
    * @param options - 转换选项
@@ -305,6 +143,13 @@ export class ConversionAPI {
    * const imgResult = await conversionApi.convert(card, 'png', {
    *   outputPath: './preview.png',
    *   image: { quality: 100, scale: 2 }
+   * });
+   *
+   * // 带进度回调
+   * const pdfResult = await conversionApi.convert(card, 'pdf', {
+   *   onProgress: (progress) => {
+   *     console.log(`${progress.progress}%: ${progress.currentStep}`);
+   *   }
    * });
    * ```
    */
@@ -338,7 +183,7 @@ export class ConversionAPI {
       if (!this.canConvert(sourceType, targetFormat)) {
         throw new ChipsError(
           'CONV-1001',
-          `conversion.unsupported_type`,
+          `Unsupported conversion: ${sourceType} -> ${targetFormat}`,
           { sourceType, targetFormat }
         );
       }
@@ -356,17 +201,18 @@ export class ConversionAPI {
       };
 
       // 发送转换请求
+      const timeout = opts.timeout || this._config.get('timeout.conversion', 300000);
       const response = await this._connector.request<ConversionResponseData>({
         service: 'file-converter',
         method: 'convert',
         payload: request,
-        timeout: this._config.get('timeout.conversion', 300000), // 5分钟超时
+        timeout,
       });
 
       if (!response.success) {
         throw new ChipsError(
           'CONV-1002',
-          response.error || 'conversion.failed',
+          response.error || 'Conversion failed',
           { taskId }
         );
       }
@@ -407,15 +253,15 @@ export class ConversionAPI {
         error: errorObj,
       };
     } finally {
-      // 清理任务记录（延迟清理以便查询最终状态）
-      setTimeout(() => {
-        this._tasks.delete(taskId);
-      }, 60000);
+      // 延迟清理任务记录，便于查询最终状态
+      this._scheduleTaskCleanup(taskId);
     }
   }
 
   /**
    * 获取支持的转换类型
+   *
+   * 返回系统支持的所有转换能力，包括内置转换器和已注册的第三方转换器。
    *
    * @returns 支持的转换能力列表
    *
@@ -442,14 +288,16 @@ export class ConversionAPI {
   /**
    * 检查是否支持某种转换
    *
-   * @param sourceType - 源类型
-   * @param targetFormat - 目标格式
-   * @returns 是否支持
+   * @param sourceType - 源类型（如 'card', 'box'）
+   * @param targetFormat - 目标格式（如 'html', 'png', 'pdf'）
+   * @returns 是否支持该转换
    *
    * @example
    * ```ts
    * if (conversionApi.canConvert('card', 'pdf')) {
    *   await conversionApi.convert(card, 'pdf');
+   * } else {
+   *   console.log('PDF conversion not supported');
    * }
    * ```
    */
@@ -463,14 +311,27 @@ export class ConversionAPI {
   /**
    * 注册转换器
    *
-   * @param converter - 转换器实例
+   * 将第三方转换器注册到系统中。注册后，该转换器支持的转换类型可通过 convert 方法使用。
+   * 转换器会同时注册到本地和 Core 的 file-converter 模块。
+   *
+   * @param converter - 转换器实例，必须实现 Converter 接口
+   * @throws {ChipsError} 当转换器元数据无效或 ID 已存在时抛出
    *
    * @example
    * ```ts
    * const customConverter: Converter = {
-   *   metadata: { id: 'custom', name: 'Custom Converter', version: '1.0.0' },
-   *   convert: async (source, options) => { ... },
-   *   getCapabilities: () => [{ sourceType: 'markdown', targetFormat: 'card' }]
+   *   metadata: {
+   *     id: 'markdown-converter',
+   *     name: 'Markdown to Card Converter',
+   *     version: '1.0.0'
+   *   },
+   *   async convert(source, options) {
+   *     // 转换逻辑
+   *     return cardData;
+   *   },
+   *   getCapabilities() {
+   *     return [{ sourceType: 'markdown', targetFormat: 'card' }];
+   *   }
    * };
    *
    * await conversionApi.registerConverter(customConverter);
@@ -485,7 +346,7 @@ export class ConversionAPI {
     if (!id || !name || !version) {
       throw new ChipsError(
         'CONV-2001',
-        'conversion.invalid_converter_metadata',
+        'Invalid converter metadata: id, name, and version are required',
         { id, name, version }
       );
     }
@@ -494,7 +355,7 @@ export class ConversionAPI {
     if (this._converters.has(id)) {
       throw new ChipsError(
         'CONV-2002',
-        'conversion.converter_already_exists',
+        `Converter with id '${id}' already exists`,
         { id }
       );
     }
@@ -531,7 +392,7 @@ export class ConversionAPI {
     this._logger.debug('Unregistering converter', { id: converterId });
 
     if (!this._converters.has(converterId)) {
-      this._logger.warn('Converter not found', { id: converterId });
+      this._logger.warn('Converter not found for unregistration', { id: converterId });
       return;
     }
 
@@ -559,13 +420,15 @@ export class ConversionAPI {
   /**
    * 列出已注册的转换器
    *
+   * 返回所有本地注册的转换器元数据。
+   *
    * @returns 转换器元数据列表
    *
    * @example
    * ```ts
    * const converters = conversionApi.listConverters();
    * converters.forEach(c => {
-   *   console.log(`${c.name} v${c.version}`);
+   *   console.log(`${c.name} v${c.version}: ${c.description}`);
    * });
    * ```
    */
@@ -576,9 +439,11 @@ export class ConversionAPI {
   /**
    * 批量转换
    *
+   * 并行转换多个源数据到指定格式。使用配置的并发数控制同时执行的转换数量。
+   *
    * @param sources - 源数据数组
    * @param targetFormat - 目标格式
-   * @param options - 转换选项
+   * @param options - 转换选项（应用于所有转换）
    * @returns 转换结果数组
    *
    * @example
@@ -629,7 +494,7 @@ export class ConversionAPI {
    * 获取任务状态
    *
    * @param taskId - 任务 ID
-   * @returns 任务进度信息
+   * @returns 任务进度信息，如果任务不存在则返回 undefined
    */
   getTaskStatus(taskId: string): ConversionProgress | undefined {
     const task = this._tasks.get(taskId);
@@ -648,11 +513,17 @@ export class ConversionAPI {
   /**
    * 取消转换任务
    *
+   * 请求取消正在执行的转换任务。已完成或已失败的任务无法取消。
+   *
    * @param taskId - 任务 ID
    */
   async cancelTask(taskId: string): Promise<void> {
     const task = this._tasks.get(taskId);
     if (!task || task.status === 'completed' || task.status === 'failed') {
+      this._logger.debug('Task cannot be cancelled', {
+        taskId,
+        reason: !task ? 'not found' : `status is ${task.status}`,
+      });
       return;
     }
 
@@ -673,7 +544,62 @@ export class ConversionAPI {
     }
   }
 
+  /**
+   * 获取转换器信息
+   *
+   * @param converterId - 转换器 ID
+   * @returns 转换器元数据和能力，如果不存在则返回 undefined
+   */
+  getConverterInfo(converterId: string): { metadata: ConverterMetadata; capabilities: ConversionCapability[] } | undefined {
+    const converter = this._converters.get(converterId);
+    if (!converter) {
+      return undefined;
+    }
+
+    return {
+      metadata: converter.metadata,
+      capabilities: converter.getCapabilities(),
+    };
+  }
+
+  /**
+   * 刷新转换能力
+   *
+   * 重新从 Core 获取支持的转换能力列表。
+   */
+  async refreshCapabilities(): Promise<void> {
+    this._logger.debug('Refreshing conversion capabilities');
+
+    try {
+      const response = await this._connector.request<GetCapabilitiesResponse>({
+        service: 'file-converter',
+        method: 'getCapabilities',
+        payload: {},
+        timeout: this._config.get('timeout.default', 30000),
+      });
+
+      if (response.success && response.data) {
+        this._capabilities = response.data.capabilities;
+        this._logger.info('Conversion capabilities refreshed', {
+          capabilityCount: this._capabilities.length,
+        });
+      }
+    } catch (error) {
+      this._logger.error('Failed to refresh capabilities', error as Error);
+    }
+  }
+
   // ========== 私有方法 ==========
+
+  /**
+   * 设置事件监听
+   */
+  private _setupEventListeners(): void {
+    // 监听转换进度事件
+    this._connector.on('conversion:progress', (data) => {
+      this._handleProgressEvent(data as ConversionProgress);
+    });
+  }
 
   /**
    * 获取源类型
@@ -740,5 +666,15 @@ export class ConversionAPI {
         task.options.onProgress(data);
       }
     }
+  }
+
+  /**
+   * 安排任务清理
+   */
+  private _scheduleTaskCleanup(taskId: string): void {
+    // 延迟 60 秒清理，便于查询最终状态
+    setTimeout(() => {
+      this._tasks.delete(taskId);
+    }, 60000);
   }
 }

@@ -930,5 +930,198 @@ interface BoxContent {
 
 ---
 
+## 15. ConversionAPI
+
+### 15.1 概述
+
+ConversionAPI 提供统一的文件转换接口，负责卡片文件与其他格式之间的转换。该 API 封装了与公共基础层文件转换接口模块的通信，简化了转换操作的调用流程，同时支持转换插件的注册与管理。
+
+### 15.2 转换方法
+
+```typescript
+class ConversionAPI {
+  // 执行格式转换
+  async convert(
+    source: string | Card | Box,
+    targetFormat: string,
+    options?: ConversionOptions
+  ): Promise<ConversionResult>
+  
+  // 批量转换
+  async convertBatch(
+    sources: Array<string | Card | Box>,
+    targetFormat: string,
+    options?: ConversionOptions
+  ): Promise<ConversionResult[]>
+  
+  // 取消正在进行的转换
+  async cancel(taskId: string): Promise<void>
+  
+  // 查询转换进度
+  async getProgress(taskId: string): Promise<ConversionProgress>
+}
+
+interface ConversionOptions {
+  outputPath?: string;         // 输出路径
+  outputName?: string;         // 输出文件名
+  overwrite?: boolean;         // 是否覆盖已存在文件
+  onProgress?: ProgressCallback; // 进度回调
+  
+  // 格式特定选项
+  html?: HTMLConversionOptions;
+  image?: ImageConversionOptions;
+  pdf?: PDFConversionOptions;
+}
+
+interface HTMLConversionOptions {
+  includeResources?: boolean;  // 是否包含资源文件
+  inlineStyles?: boolean;      // 是否内联样式
+  minify?: boolean;            // 是否压缩 HTML
+}
+
+interface ImageConversionOptions {
+  format?: 'png' | 'jpg';      // 图片格式
+  quality?: number;            // 图片质量 (0-100)
+  scale?: number;              // 缩放比例
+  width?: number;              // 指定宽度
+  height?: number;             // 指定高度
+}
+
+interface PDFConversionOptions {
+  pageSize?: 'A4' | 'A5' | 'letter' | 'custom';
+  orientation?: 'portrait' | 'landscape';
+  margin?: number | { top: number; right: number; bottom: number; left: number };
+  includeCover?: boolean;      // 是否包含封面
+  includeTableOfContents?: boolean; // 是否包含目录
+}
+
+type ProgressCallback = (progress: ConversionProgress) => void
+
+interface ConversionProgress {
+  taskId: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled';
+  progress: number;            // 0-100
+  currentStep?: string;        // 当前步骤描述
+  error?: Error;
+}
+
+interface ConversionResult {
+  success: boolean;
+  taskId: string;
+  outputPath?: string;         // 输出文件路径
+  outputData?: Blob;           // 输出数据 (当未指定 outputPath 时)
+  duration: number;            // 转换耗时 (ms)
+  error?: Error;
+}
+```
+
+### 15.3 转换器管理
+
+```typescript
+class ConversionAPI {
+  // 注册转换器
+  async registerConverter(converter: Converter): Promise<void>
+  
+  // 注销转换器
+  async unregisterConverter(id: string): Promise<void>
+  
+  // 获取转换器
+  getConverter(id: string): Converter | undefined
+  
+  // 列出已注册的转换器
+  listConverters(filter?: ConverterFilter): ConverterInfo[]
+  
+  // 查询支持的转换类型
+  getSupportedConversions(): ConversionCapability[]
+  
+  // 检查是否支持特定转换
+  canConvert(sourceType: string, targetFormat: string): boolean
+}
+
+interface Converter {
+  metadata: ConverterMetadata;
+  convert(source: any, options: any): Promise<any>;
+  getCapabilities(): ConversionCapability[];
+}
+
+interface ConverterMetadata {
+  id: string;
+  name: string;
+  version: string;
+  description?: string;
+  author?: string;
+}
+
+interface ConverterFilter {
+  sourceType?: string;
+  targetFormat?: string;
+}
+
+interface ConverterInfo {
+  id: string;
+  name: string;
+  version: string;
+  capabilities: ConversionCapability[];
+}
+
+interface ConversionCapability {
+  sourceType: string;          // 源类型 (card, box 等)
+  targetFormat: string;        // 目标格式 (html, png, pdf 等)
+  options?: any;               // 支持的选项 schema
+}
+```
+
+### 15.4 使用示例
+
+```typescript
+// 卡片转 HTML
+const result = await sdk.conversion.convert(card, 'html', {
+  outputPath: './output',
+  html: {
+    includeResources: true,
+    minify: true
+  }
+});
+
+// 卡片转图片，带进度回调
+await sdk.conversion.convert(card, 'png', {
+  outputPath: './output/card.png',
+  image: {
+    format: 'png',
+    scale: 2
+  },
+  onProgress: (progress) => {
+    console.log(`转换进度: ${progress.progress}%`);
+  }
+});
+
+// 卡片转 PDF
+await sdk.conversion.convert(card, 'pdf', {
+  outputPath: './output/card.pdf',
+  pdf: {
+    pageSize: 'A4',
+    orientation: 'portrait',
+    includeCover: true
+  }
+});
+
+// 批量转换
+const results = await sdk.conversion.convertBatch(
+  [card1, card2, card3],
+  'html',
+  { outputPath: './output' }
+);
+
+// 查询支持的转换类型
+const capabilities = sdk.conversion.getSupportedConversions();
+// => [{ sourceType: 'card', targetFormat: 'html' }, ...]
+
+// 检查是否支持某种转换
+const canConvert = sdk.conversion.canConvert('card', 'pdf');
+// => true
+```
+
+---
+
 **文档维护者**: Chips 生态核心团队  
 **反馈渠道**: 提交 Issue 到官方仓库

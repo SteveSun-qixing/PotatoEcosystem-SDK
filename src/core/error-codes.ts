@@ -1,117 +1,128 @@
 /**
- * 错误码常量
+ * 标准错误代码定义
  * @module core/error-codes
+ * 
+ * 定义薯片生态中所有标准化的错误代码
+ * 遵循命名规范: [分类]-[编号]
  */
 
-export const ErrorCodes = {
-  // ========== 连接错误 CONN-1xxx ==========
-  /** 连接失败 */
-  CONN_FAILED: 'CONN-1001',
-  /** 连接超时 */
-  CONN_TIMEOUT: 'CONN-1002',
-  /** 连接已关闭 */
-  CONN_CLOSED: 'CONN-1003',
-  /** 连接被拒绝 */
-  CONN_REFUSED: 'CONN-1004',
-
-  // ========== 协议错误 PROTOCOL-1xxx ==========
-  /** 协议版本不匹配 */
-  PROTOCOL_VERSION_MISMATCH: 'PROTOCOL-1001',
-  /** 消息格式无效 */
-  PROTOCOL_INVALID_MESSAGE: 'PROTOCOL-1002',
-  /** 响应格式无效 */
-  PROTOCOL_INVALID_RESPONSE: 'PROTOCOL-1003',
-
-  // ========== 路由错误 ROUTE-1xxx ==========
-  /** 路由未找到 */
-  ROUTE_NOT_FOUND: 'ROUTE-1001',
-  /** 路由超时 */
-  ROUTE_TIMEOUT: 'ROUTE-1002',
-  /** 路由失败 */
-  ROUTE_FAILED: 'ROUTE-1003',
-
-  // ========== 文件错误 FILE-1xxx ==========
-  /** 文件未找到 */
-  FILE_NOT_FOUND: 'FILE-1001',
-  /** 路径无效 */
-  FILE_INVALID_PATH: 'FILE-1002',
-  /** 读取失败 */
-  FILE_READ_FAILED: 'FILE-1003',
-  /** 写入失败 */
-  FILE_WRITE_FAILED: 'FILE-1004',
-  /** 格式无效 */
-  FILE_FORMAT_INVALID: 'FILE-1005',
-  /** 文件损坏 */
-  FILE_CORRUPTED: 'FILE-1006',
-  /** 文件已存在 */
-  FILE_ALREADY_EXISTS: 'FILE-1007',
-  /** 权限不足 */
-  FILE_PERMISSION_DENIED: 'FILE-1008',
-
-  // ========== 验证错误 VAL-1xxx ==========
-  /** 输入无效 */
-  VAL_INVALID_INPUT: 'VAL-1001',
-  /** 必填字段缺失 */
-  VAL_REQUIRED_FIELD: 'VAL-1002',
-  /** 类型无效 */
-  VAL_INVALID_TYPE: 'VAL-1003',
-  /** 格式无效 */
-  VAL_INVALID_FORMAT: 'VAL-1004',
-  /** 值超出范围 */
-  VAL_OUT_OF_RANGE: 'VAL-1005',
-
-  // ========== 资源错误 RES-1xxx ==========
-  /** 资源未找到 */
-  RES_NOT_FOUND: 'RES-1001',
-  /** 资源加载失败 */
-  RES_LOAD_FAILED: 'RES-1002',
-  /** URI 无效 */
-  RES_INVALID_URI: 'RES-1003',
-  /** 资源过大 */
-  RES_TOO_LARGE: 'RES-1004',
-
-  // ========== 插件错误 PLUGIN-1xxx ==========
-  /** 插件未找到 */
-  PLUGIN_NOT_FOUND: 'PLUGIN-1001',
-  /** 插件加载失败 */
-  PLUGIN_LOAD_FAILED: 'PLUGIN-1002',
-  /** 插件无效 */
-  PLUGIN_INVALID: 'PLUGIN-1003',
-  /** 插件冲突 */
-  PLUGIN_CONFLICT: 'PLUGIN-1004',
-  /** 插件依赖缺失 */
-  PLUGIN_DEPENDENCY_MISSING: 'PLUGIN-1005',
-  /** 插件已存在 */
-  PLUGIN_ALREADY_EXISTS: 'PLUGIN-1006',
-
-  // ========== 渲染错误 RENDER-1xxx ==========
-  /** 渲染失败 */
-  RENDER_FAILED: 'RENDER-1001',
-  /** 容器无效 */
-  RENDER_CONTAINER_INVALID: 'RENDER-1002',
-  /** 实例未找到 */
-  RENDER_INSTANCE_NOT_FOUND: 'RENDER-1003',
-  /** 渲染超时 */
-  RENDER_TIMEOUT: 'RENDER-1004',
-
-  // ========== 主题错误 THEME-1xxx ==========
-  /** 主题未找到 */
-  THEME_NOT_FOUND: 'THEME-1001',
-  /** 主题无效 */
-  THEME_INVALID: 'THEME-1002',
-  /** 主题应用失败 */
-  THEME_APPLY_FAILED: 'THEME-1003',
-
-  // ========== SDK 错误 SDK-1xxx ==========
-  /** SDK 未初始化 */
-  SDK_NOT_INITIALIZED: 'SDK-1001',
-  /** SDK 正在初始化 */
-  SDK_INITIALIZING: 'SDK-1002',
-  /** SDK 已销毁 */
-  SDK_DESTROYED: 'SDK-1003',
+/**
+ * 导出相关错误代码
+ */
+export const ExportErrorCodes = {
+  // 通用错误 (EXPORT-0xxx)
+  EXPORT_FAILED: 'EXPORT-0001',
+  INVALID_FORMAT: 'EXPORT-0002',
+  INVALID_OPTIONS: 'EXPORT-0003',
+  EXPORT_CANCELLED: 'EXPORT-0004',
+  EXPORT_TIMEOUT: 'EXPORT-0005',
+  
+  // 卡片打包错误 (EXPORT-1xxx)
+  PACK_FAILED: 'EXPORT-1001',
+  PACK_INVALID_STRUCTURE: 'EXPORT-1002',
+  PACK_RESOURCE_MISSING: 'EXPORT-1003',
+  PACK_FILE_TOO_LARGE: 'EXPORT-1004',
+  PACK_MISSING_REQUIRED_FILE: 'EXPORT-1005',
+  PACK_INVALID_METADATA: 'EXPORT-1006',
+  PACK_INVALID_CARD_ID: 'EXPORT-1007',
+  
+  // HTML转换错误 (EXPORT-2xxx)
+  HTML_CONVERSION_FAILED: 'EXPORT-2001',
+  HTML_RENDERER_NOT_FOUND: 'EXPORT-2002',
+  HTML_THEME_NOT_FOUND: 'EXPORT-2003',
+  HTML_GENERATION_FAILED: 'EXPORT-2004',
+  HTML_RESOURCE_FAILED: 'EXPORT-2005',
+  
+  // PDF转换错误 (EXPORT-3xxx)
+  PDF_CONVERSION_FAILED: 'EXPORT-3001',
+  PDF_GENERATION_FAILED: 'EXPORT-3002',
+  PDF_BROWSER_LAUNCH_FAILED: 'EXPORT-3003',
+  PDF_PAGE_LOAD_FAILED: 'EXPORT-3004',
+  PDF_INVALID_FORMAT: 'EXPORT-3005',
+  
+  // Image转换错误 (EXPORT-4xxx)
+  IMAGE_CONVERSION_FAILED: 'EXPORT-4001',
+  IMAGE_RENDERING_FAILED: 'EXPORT-4002',
+  IMAGE_BROWSER_LAUNCH_FAILED: 'EXPORT-4003',
+  IMAGE_SCREENSHOT_FAILED: 'EXPORT-4004',
+  IMAGE_INVALID_FORMAT: 'EXPORT-4005',
+  
+  // 文件系统错误 (EXPORT-5xxx)
+  FILE_WRITE_FAILED: 'EXPORT-5001',
+  FILE_READ_FAILED: 'EXPORT-5002',
+  FILE_PERMISSION_DENIED: 'EXPORT-5003',
+  DISK_SPACE_FULL: 'EXPORT-5004',
+  FILE_EXISTS: 'EXPORT-5005',
+  DIRECTORY_NOT_FOUND: 'EXPORT-5006',
+  PATH_TRAVERSAL: 'EXPORT-5007',
+  
+  // ZIP 相关错误 (EXPORT-6xxx)
+  ZIP_CREATE_FAILED: 'EXPORT-6001',
+  ZIP_EXTRACT_FAILED: 'EXPORT-6002',
+  ZIP_CORRUPTED: 'EXPORT-6003',
+  ZIP_TOO_LARGE: 'EXPORT-6004',
 } as const;
 
 /**
- * 错误码类型
+ * 导出错误代码类型
  */
-export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];
+export type ExportErrorCode = (typeof ExportErrorCodes)[keyof typeof ExportErrorCodes];
+
+/**
+ * 通用错误代码
+ */
+export const CommonErrorCodes = {
+  // 通用 (COMMON-0xxx)
+  UNKNOWN: 'COMMON-0001',
+  INVALID_INPUT: 'COMMON-0002',
+  INVALID_STATE: 'COMMON-0003',
+  OPERATION_FAILED: 'COMMON-0004',
+  NOT_IMPLEMENTED: 'COMMON-0005',
+  
+  // 验证 (VAL-1xxx)
+  VALIDATION_FAILED: 'VAL-1001',
+  INVALID_FORMAT: 'VAL-1002',
+  REQUIRED_FIELD_MISSING: 'VAL-1003',
+  INVALID_VALUE: 'VAL-1004',
+  
+  // 权限 (PERM-2xxx)
+  PERMISSION_DENIED: 'PERM-2001',
+  UNAUTHORIZED: 'PERM-2002',
+  FORBIDDEN: 'PERM-2003',
+  
+  // 资源 (RES-3xxx)
+  RESOURCE_NOT_FOUND: 'RES-3001',
+  RESOURCE_LOCKED: 'RES-3002',
+  RESOURCE_CONFLICT: 'RES-3003',
+  RESOURCE_EXHAUSTED: 'RES-3004',
+  
+  // 网络 (NET-4xxx)
+  NETWORK_ERROR: 'NET-4001',
+  CONNECTION_FAILED: 'NET-4002',
+  REQUEST_TIMEOUT: 'NET-4003',
+  SERVER_ERROR: 'NET-4004',
+  
+  // 系统 (SYS-9xxx)
+  SYSTEM_ERROR: 'SYS-9001',
+  INTERNAL_ERROR: 'SYS-9002',
+  NOT_SUPPORTED: 'SYS-9003',
+  DEPRECATED: 'SYS-9004',
+} as const;
+
+/**
+ * 通用错误代码类型
+ */
+export type CommonErrorCode = (typeof CommonErrorCodes)[keyof typeof CommonErrorCodes];
+
+/**
+ * 所有错误代码
+ */
+export const ErrorCodes = {
+  ...CommonErrorCodes,
+  ...ExportErrorCodes,
+} as const;
+
+/**
+ * 错误代码类型
+ */
+export type ErrorCode = CommonErrorCode | ExportErrorCode;

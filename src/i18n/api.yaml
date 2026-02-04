@@ -1,0 +1,98 @@
+# SDK API 相关多语言词汇表
+
+api:
+  # 通用消息
+  common:
+    loading: "加载中..."
+    processing: "处理中..."
+    success: "操作成功"
+    failed: "操作失败"
+    cancelled: "操作已取消"
+    timeout: "操作超时"
+  
+  # 卡片 API
+  card:
+    creating: "正在创建卡片..."
+    created: "卡片已创建: {name}"
+    create_failed: "创建卡片失败: {error}"
+    
+    reading: "正在读取卡片..."
+    read_success: "卡片读取成功: {name}"
+    read_failed: "读取卡片失败: {error}"
+    
+    updating: "正在更新卡片..."
+    updated: "卡片已更新"
+    update_failed: "更新卡片失败: {error}"
+    
+    deleting: "正在删除卡片..."
+    deleted: "卡片已删除"
+    delete_failed: "删除卡片失败: {error}"
+    
+    exporting: "正在导出卡片..."
+    exported: "卡片已导出: {path}"
+    export_failed: "导出卡片失败: {error}"
+    
+    not_found: "卡片不存在: {id}"
+    invalid_id: "无效的卡片 ID: {id}"
+  
+  # 转换 API
+  conversion:
+    converting: "正在转换文件..."
+    convert_success: "转换成功: {source} -> {target}"
+    convert_failed: "转换失败: {error}"
+    
+    converter_not_found: "未找到转换器: {source} -> {target}"
+    invalid_source: "无效的转换源"
+    invalid_options: "无效的转换选项"
+    
+    cancelling: "正在取消转换..."
+    cancel_success: "转换已取消"
+    cancel_failed: "取消失败"
+    task_not_found: "任务不存在: {taskId}"
+  
+  # 文件 API
+  file:
+    reading: "正在读取文件..."
+    read_success: "文件读取成功"
+    read_failed: "读取文件失败: {error}"
+    
+    writing: "正在写入文件..."
+    write_success: "文件写入成功"
+    write_failed: "写入文件失败: {error}"
+    
+    listing: "正在列出文件..."
+    list_success: "找到 {count} 个文件"
+    list_failed: "列出文件失败: {error}"
+    
+    file_not_found: "文件不存在: {path}"
+    permission_denied: "权限不足: {path}"
+  
+  # 错误码对应的用户友好消息
+  errors:
+    # 通用错误
+    UNKNOWN: "发生未知错误"
+    TIMEOUT: "操作超时"
+    CANCELLED: "操作已取消"
+    
+    # 卡片错误
+    CARD_NOT_FOUND: "卡片不存在"
+    CARD_INVALID: "卡片数据无效"
+    CARD_LOCKED: "卡片已被锁定"
+    
+    # 文件错误
+    FILE_NOT_FOUND: "文件不存在"
+    FILE_READ_ERROR: "文件读取失败"
+    FILE_WRITE_ERROR: "文件写入失败"
+    FILE_PERMISSION_DENIED: "权限不足"
+    FILE_TOO_LARGE: "文件过大"
+    DISK_FULL: "磁盘空间不足"
+    
+    # 转换错误
+    CONVERSION_FAILED: "转换失败"
+    CONVERTER_NOT_FOUND: "未找到转换器"
+    INVALID_FORMAT: "不支持的格式"
+    
+    # 网络错误
+    NETWORK_ERROR: "网络错误"
+    SERVER_ERROR: "服务器错误"
+    CONNECTION_REFUSED: "连接被拒绝"

@@ -455,6 +455,7 @@ if (!result.valid) {
 | `validate` | `(card: Card) => boolean` | 验证卡片 |
 | `getCachedIds` | `() => ChipsId[]` | 获取缓存的 ID |
 | `clearCache` | `() => void` | 清除缓存 |
+| `export` | `(cardId: ChipsId, format: ExportFormat, options: ExportOptions) => Promise<ConversionResult>` | **导出卡片** |
 
 #### CreateCardOptions
 
@@ -515,6 +516,122 @@ await sdk.card.addTags(card.id, ['紧急']);
 
 // 删除卡片
 await sdk.card.delete(card.id);
+
+// 导出卡片为 .card 文件
+const cardResult = await sdk.card.export(card.id, 'card', {
+  outputPath: '/exports/my-card.card',
+  includeResources: true,
+});
+
+// 导出为 HTML 网页
+const htmlResult = await sdk.card.export(card.id, 'html', {
+  outputPath: '/exports/my-card-html',
+  includeAssets: true,
+});
+
+// 导出为 PDF 文档
+const pdfResult = await sdk.card.export(card.id, 'pdf', {
+  outputPath: '/exports/my-card.pdf',
+  pageFormat: 'a4',
+  orientation: 'portrait',
+});
+
+// 导出为图片
+const imageResult = await sdk.card.export(card.id, 'image', {
+  outputPath: '/exports/my-card.png',
+  format: 'png',
+  scale: 2,
+});
+
+// 监控导出进度
+await sdk.card.export(card.id, 'html', {
+  outputPath: '/exports/my-card',
+  onProgress: (progress) => {
+    console.log(`${progress.percent}%: ${progress.currentStep}`);
+  },
+});
+```
+
+#### export() 方法详解
+
+**统一的导出接口，支持4种格式**
+
+```typescript
+async export(
+  cardId: ChipsId,
+  format: 'card' | 'html' | 'pdf' | 'image',
+  options: ExportOptions
+): Promise<ConversionResult>
+```
+
+**参数**:
+- `cardId`: 卡片ID（10位62进制）
+- `format`: 导出格式
+  - `'card'`: 导出为 .card 文件（标准卡片格式）
+  - `'html'`: 导出为 HTML 网页（可离线浏览）
+  - `'pdf'`: 导出为 PDF 文档（适合打印）
+  - `'image'`: 导出为图片（PNG/JPG）
+- `options`: 导出选项（根据格式不同）
+
+**通用选项**:
+```typescript
+interface ExportOptions {
+  outputPath: string;        // 输出路径（必填）
+  themeId?: string;          // 主题ID（覆盖卡片默认主题）
+  onProgress?: (progress: ConversionProgress) => void;  // 进度回调
+  // ... 格式特定选项
+}
+```
+
+**格式特定选项**:
+
+`.card` 格式:
+- `includeResources?: boolean` - 是否包含资源文件（默认true）
+- `compress?: boolean` - 是否压缩（默认false，使用存储模式）
+
+`html` 格式:
+- `includeAssets?: boolean` - 是否包含资源（默认true）
+- `assetStrategy?: 'copy-all' | 'copy-local' | 'embed' | 'reference-only'`
+
+`pdf` 格式:
+- `pageFormat?: 'a4' | 'a5' | 'letter'` - 页面格式（默认a4）
+- `orientation?: 'portrait' | 'landscape'` - 页面方向（默认portrait）
+- `margin?: { top?, right?, bottom?, left? }` - 页边距
+
+`image` 格式:
+- `format?: 'png' | 'jpg'` - 图片格式（默认png）
+- `quality?: number` - JPG质量1-100（默认90）
+- `scale?: number` - 缩放比例（默认1）
+- `transparent?: boolean` - 透明背景，仅PNG（默认false）
+
+**返回值**:
+```typescript
+interface ConversionResult {
+  success: boolean;         // 是否成功
+  taskId: string;           // 任务ID
+  outputPath?: string;      // 输出路径
+  error?: {
+    code: string;           // 错误代码
+    message: string;        // 错误消息
+  };
+  warnings?: string[];      // 警告列表
+  stats?: {
+    duration: number;       // 耗时（毫秒）
+    fileSize?: number;      // 文件大小（字节）
+  };
+}
+```
+
+**错误代码**:
+- `EXPORT-0001`: 通用导出失败
+- `EXPORT-1001`: 卡片打包失败
+- `EXPORT-2001`: HTML转换失败
+- `EXPORT-3001`: PDF转换失败
+- `EXPORT-4001`: 图片转换失败
+- `EXPORT-5001`: 文件写入失败
+
+详见 [错误代码完整列表](#错误代码完整列表)
+
 ```
 
 ### BoxAPI
@@ -581,6 +698,248 @@ await sdk.box.setLayoutConfig(box.id, {
 
 // 保存箱子
 await sdk.box.save('/boxes/work.box', box);
+```
+
+### ConversionAPI
+
+**文件转换和卡片导出 API**
+
+提供卡片文件转换功能，支持转换为 HTML、PDF、图片等格式，以及导出为 .card 文件。
+
+#### 方法
+
+| 方法 | 签名 | 说明 |
+|------|------|------|
+| `convertToHTML` | `(source: ConversionSource, options?: HTMLConversionOptions) => Promise<ConversionResult>` | 转换为 HTML |
+| `convertToImage` | `(source: ConversionSource, options?: ImageConversionOptions) => Promise<ConversionResult>` | 转换为图片 |
+| `convertToPDF` | `(source: ConversionSource, options?: PDFConversionOptions) => Promise<ConversionResult>` | 转换为 PDF |
+| `exportAsCard` | `(cardId: ChipsId, options: CardExportOptions) => Promise<ConversionResult>` | 导出为 .card 文件 |
+| `getSupportedConversions` | `() => Promise<SupportedConversion[]>` | 获取支持的转换类型 |
+| `canConvert` | `(sourceType: string, targetType: string) => Promise<boolean>` | 检查是否支持转换 |
+| `cancelConversion` | `(taskId: string) => Promise<boolean>` | 取消转换任务 |
+| `getActiveTaskCount` | `() => number` | 获取活动任务数 |
+
+#### ConversionSource
+
+转换源，支持文件路径或二进制数据：
+
+```typescript
+interface ConversionSource {
+  type: 'path' | 'data';
+  path?: string;           // type为path时必填
+  data?: Uint8Array;       // type为data时必填
+  fileType: string;        // 文件类型，如'card'
+}
+```
+
+#### HTMLConversionOptions
+
+```typescript
+interface HTMLConversionOptions {
+  outputPath?: string;                    // 输出目录路径
+  includeAssets?: boolean;                // 是否包含资源（默认true）
+  themeId?: string;                       // 主题ID
+  assetStrategy?: AssetStrategy;          // 资源处理策略
+  onProgress?: (progress: ConversionProgress) => void;  // 进度回调
+}
+
+type AssetStrategy = 
+  | 'copy-all'        // 复制所有资源
+  | 'copy-local'      // 只复制本地资源
+  | 'embed'           // 嵌入为Base64
+  | 'reference-only'; // 只保留引用
+```
+
+#### ImageConversionOptions
+
+```typescript
+interface ImageConversionOptions {
+  outputPath?: string;                    // 输出文件路径
+  format?: 'png' | 'jpg';                 // 图片格式（默认png）
+  quality?: number;                       // JPG质量1-100（默认90）
+  scale?: number;                         // 缩放比例（默认1）
+  width?: number;                         // 固定宽度（像素）
+  height?: number;                        // 固定高度（像素）
+  transparent?: boolean;                  // 透明背景，仅PNG（默认false）
+  backgroundColor?: string;               // 背景颜色（默认#ffffff）
+  themeId?: string;                       // 主题ID
+  onProgress?: (progress: ConversionProgress) => void;
+}
+```
+
+#### PDFConversionOptions
+
+```typescript
+interface PDFConversionOptions {
+  outputPath?: string;                    // 输出文件路径
+  pageFormat?: PageFormat;                // 页面格式（默认a4）
+  orientation?: 'portrait' | 'landscape'; // 页面方向（默认portrait）
+  margin?: PageMargin;                    // 页边距
+  printBackground?: boolean;              // 是否打印背景（默认true）
+  displayHeaderFooter?: boolean;          // 是否显示页眉页脚（默认false）
+  headerTemplate?: string;                // 页眉HTML模板
+  footerTemplate?: string;                // 页脚HTML模板
+  themeId?: string;                       // 主题ID
+  onProgress?: (progress: ConversionProgress) => void;
+}
+
+type PageFormat = 'a4' | 'a5' | 'a3' | 'letter' | 'legal' | 'tabloid';
+
+interface PageMargin {
+  top?: string;      // 如'15mm'
+  right?: string;
+  bottom?: string;
+  left?: string;
+}
+```
+
+#### CardExportOptions
+
+```typescript
+interface CardExportOptions {
+  outputPath: string;                     // 输出文件路径（必填）
+  compress?: boolean;                     // 是否压缩（默认false）
+  includeResources?: boolean;             // 是否包含资源（默认true）
+  onProgress?: (progress: ConversionProgress) => void;
+}
+```
+
+#### ConversionResult
+
+```typescript
+interface ConversionResult {
+  success: boolean;                       // 是否成功
+  taskId: string;                         // 任务ID
+  outputPath?: string;                    // 输出路径
+  data?: Uint8Array;                      // 输出数据（未指定路径时）
+  error?: {
+    code: string;                         // 错误代码
+    message: string;                      // 错误消息
+  };
+  warnings?: string[];                    // 警告列表
+  stats?: {
+    duration: number;                     // 耗时（毫秒）
+    fileSize?: number;                    // 文件大小（字节）
+    fileCount?: number;                   // 文件数量
+  };
+}
+```
+
+#### ConversionProgress
+
+```typescript
+interface ConversionProgress {
+  taskId: string;                         // 任务ID
+  status: ConversionStatus;               // 当前状态
+  percent: number;                        // 完成百分比(0-100)
+  currentStep?: string;                   // 当前步骤描述
+}
+
+type ConversionStatus = 
+  | 'pending'      // 等待中
+  | 'parsing'      // 解析中
+  | 'rendering'    // 渲染中
+  | 'processing'   // 处理中
+  | 'writing'      // 写入中
+  | 'completed'    // 已完成
+  | 'failed'       // 失败
+  | 'cancelled';   // 已取消
+```
+
+#### 使用示例
+
+```typescript
+// 转换为 HTML
+const htmlResult = await sdk.conversion.convertToHTML(
+  {
+    type: 'path',
+    path: '/path/to/card.card',
+    fileType: 'card',
+  },
+  {
+    outputPath: '/exports/html-output',
+    includeAssets: true,
+    assetStrategy: 'copy-local',
+    onProgress: (progress) => {
+      console.log(`${progress.percent}%: ${progress.currentStep}`);
+    },
+  }
+);
+
+// 转换为高清PNG图片
+const imageResult = await sdk.conversion.convertToImage(
+  { type: 'path', path: '/path/to/card.card', fileType: 'card' },
+  {
+    outputPath: '/exports/card.png',
+    format: 'png',
+    scale: 2,              // 2x Retina高清
+    transparent: false,
+  }
+);
+
+// 转换为PDF文档
+const pdfResult = await sdk.conversion.convertToPDF(
+  { type: 'path', path: '/path/to/card.card', fileType: 'card' },
+  {
+    outputPath: '/exports/card.pdf',
+    pageFormat: 'a4',
+    orientation: 'portrait',
+    margin: {
+      top: '20mm',
+      right: '15mm',
+      bottom: '20mm',
+      left: '15mm',
+    },
+    printBackground: true,
+  }
+);
+
+// 导出为 .card 文件
+const cardResult = await sdk.conversion.exportAsCard('abc123', {
+  outputPath: '/exports/my-card.card',
+  compress: false,
+  includeResources: true,
+});
+
+// 取消转换
+const cancelled = await sdk.conversion.cancelConversion(taskId);
+```
+
+#### 两阶段转换架构
+
+**PDF和Image转换采用两阶段架构**：
+
+```
+阶段1: 卡片 → HTML (CardtoHTMLPlugin)
+  ↓
+阶段2: HTML → PDF/Image (Puppeteer渲染)
+```
+
+**优势**:
+1. **代码复用**: HTML转换逻辑只需实现一次
+2. **视觉一致**: 保证不同格式的视觉效果完全一致
+3. **维护简单**: 只需维护一套HTML生成逻辑
+4. **灵活扩展**: 可以独立优化每个阶段
+
+**实现示例**:
+```typescript
+// CardtoImagePlugin 内部实现
+async convert(source, options) {
+  // 第一阶段：生成HTML
+  const htmlResult = await this._htmlPlugin.convert(source, {
+    themeId: options.themeId,
+    includeAssets: true,
+  });
+  
+  // 第二阶段：使用Puppeteer渲染并截图
+  const browser = await puppeteer.launch({ headless: true });
+  const page = await browser.newPage();
+  await page.setContent(htmlResult.data);
+  const screenshot = await page.screenshot({ type: 'png' });
+  await browser.close();
+  
+  return { imageData: screenshot };
+}
 ```
 
 ---
@@ -1270,6 +1629,117 @@ sequence<T>(tasks: (() => Promise<T>)[]): Promise<T[]>
 | `maxDelayMs` | `number` | `30000` | 最大延迟 |
 | `shouldRetry` | `(error: Error) => boolean` | - | 重试条件 |
 | `onRetry` | `(error: Error, attempt: number) => void` | - | 重试回调 |
+
+---
+
+## 错误代码完整列表
+
+### 导出相关错误代码
+
+#### 通用错误 (EXPORT-0xxx)
+
+| 错误代码 | 说明 |
+|---------|------|
+| `EXPORT-0001` | 导出失败 |
+| `EXPORT-0002` | 无效的导出格式 |
+| `EXPORT-0003` | 无效的导出选项 |
+| `EXPORT-0004` | 导出已取消 |
+| `EXPORT-0005` | 导出超时 |
+
+#### 卡片打包错误 (EXPORT-1xxx)
+
+| 错误代码 | 说明 |
+|---------|------|
+| `EXPORT-1001` | 打包失败 |
+| `EXPORT-1002` | 卡片结构无效 |
+| `EXPORT-1003` | 资源文件缺失 |
+| `EXPORT-1004` | 文件过大 |
+| `EXPORT-1005` | 缺少必需文件 |
+| `EXPORT-1006` | 元数据格式无效 |
+| `EXPORT-1007` | 卡片ID格式无效 |
+
+#### HTML转换错误 (EXPORT-2xxx)
+
+| 错误代码 | 说明 |
+|---------|------|
+| `EXPORT-2001` | HTML转换失败 |
+| `EXPORT-2002` | 渲染器未找到 |
+| `EXPORT-2003` | 主题未找到 |
+| `EXPORT-2004` | HTML生成失败 |
+| `EXPORT-2005` | 资源处理失败 |
+
+#### PDF转换错误 (EXPORT-3xxx)
+
+| 错误代码 | 说明 |
+|---------|------|
+| `EXPORT-3001` | PDF转换失败 |
+| `EXPORT-3002` | PDF生成失败 |
+| `EXPORT-3003` | 浏览器启动失败 |
+| `EXPORT-3004` | 页面加载失败 |
+| `EXPORT-3005` | 无效的页面格式 |
+
+#### 图片转换错误 (EXPORT-4xxx)
+
+| 错误代码 | 说明 |
+|---------|------|
+| `EXPORT-4001` | 图片转换失败 |
+| `EXPORT-4002` | 图片渲染失败 |
+| `EXPORT-4003` | 浏览器启动失败 |
+| `EXPORT-4004` | 截图失败 |
+| `EXPORT-4005` | 无效的图片格式 |
+
+#### 文件系统错误 (EXPORT-5xxx)
+
+| 错误代码 | 说明 |
+|---------|------|
+| `EXPORT-5001` | 文件写入失败 |
+| `EXPORT-5002` | 文件读取失败 |
+| `EXPORT-5003` | 权限不足 |
+| `EXPORT-5004` | 磁盘空间不足 |
+| `EXPORT-5005` | 文件已存在 |
+| `EXPORT-5006` | 目录未找到 |
+| `EXPORT-5007` | 路径遍历攻击 |
+
+#### ZIP相关错误 (EXPORT-6xxx)
+
+| 错误代码 | 说明 |
+|---------|------|
+| `EXPORT-6001` | ZIP创建失败 |
+| `EXPORT-6002` | ZIP提取失败 |
+| `EXPORT-6003` | ZIP文件损坏 |
+| `EXPORT-6004` | ZIP文件过大 |
+
+### 错误处理示例
+
+```typescript
+try {
+  const result = await sdk.card.export(cardId, 'pdf', options);
+  
+  if (!result.success) {
+    // 根据错误代码处理
+    switch (result.error?.code) {
+      case 'EXPORT-5001':
+        console.error('文件写入失败，请检查磁盘空间和权限');
+        break;
+      case 'EXPORT-3001':
+        console.error('PDF生成失败，请检查Puppeteer是否安装');
+        break;
+      case 'EXPORT-1002':
+        console.error('卡片结构无效，请检查卡片数据');
+        break;
+      default:
+        console.error(`导出失败: ${result.error?.message}`);
+    }
+  }
+  
+  // 检查警告
+  if (result.warnings && result.warnings.length > 0) {
+    console.warn('导出警告:', result.warnings);
+  }
+} catch (error) {
+  console.error('导出过程发生异常:', error);
+}
+```
 
 ---
 

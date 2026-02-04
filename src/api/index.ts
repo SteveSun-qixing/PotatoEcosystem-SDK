@@ -6,6 +6,7 @@
 export { FileAPI } from './file-api';
 export { CardAPI } from './card-api';
 export { BoxAPI } from './box-api';
+export { ConversionAPI } from './conversion-api';
 
 export type {
   FileInfo,
@@ -29,3 +30,18 @@ export type {
   BoxQueryOptions,
   CardPosition,
 } from './box-api';
+
+export type {
+  ConversionSource,
+  ConversionSourceType,
+  AssetStrategy,
+  HTMLConversionOptions,
+  ImageConversionOptions,
+  PDFConversionOptions,
+  CardExportOptions,
+  ConversionStatus,
+  ConversionProgress,
+  ConversionStats,
+  ConversionResult,
+  SupportedConversion,
+} from './conversion-api';

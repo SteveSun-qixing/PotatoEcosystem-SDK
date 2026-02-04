@@ -381,4 +381,143 @@ export class CardAPI {
     this._cardMap.clear();
     this._fileApi.clearCache();
   }
+
+  /**
+   * 导出卡片为指定格式
+   * 
+   * 统一的导出接口，支持 4 种格式：
+   * - 'card': 导出为 .card 文件（通过 CardPacker）
+   * - 'html': 导出为 HTML 网页（通过 CardtoHTMLPlugin）
+   * - 'pdf': 导出为 PDF 文档（通过 CardtoPDFPlugin）
+   * - 'image': 导出为图片（通过 CardtoImagePlugin）
+   * 
+   * @param cardId - 卡片 ID
+   * @param format - 导出格式
+   * @param options - 导出选项
+   * @returns 转换结果
+   * 
+   * @example
+   * ```typescript
+   * // 导出为 .card 文件
+   * const result = await cardApi.export('abc123', 'card', {
+   *   outputPath: '/exports/my-card.card'
+   * });
+   * 
+   * // 导出为 HTML
+   * const htmlResult = await cardApi.export('abc123', 'html', {
+   *   outputPath: '/exports/my-card-html',
+   *   includeAssets: true
+   * });
+   * ```
+   */
+  async export(
+    cardId: ChipsId,
+    format: 'card' | 'html' | 'pdf' | 'image',
+    options: {
+      outputPath: string;
+      [key: string]: any;
+    }
+  ): Promise<any> {
+    this._logger.info('Exporting card', { cardId, format, outputPath: options.outputPath });
+
+    try {
+      // 导入 ConversionAPI（避免循环依赖）
+      const { ConversionAPI } = await import('./conversion-api');
+      const conversionApi = new ConversionAPI(
+        this._connector,
+        this._logger,
+        this._config as any
+      );
+
+      // 根据格式路由到相应的转换方法
+      switch (format) {
+        case 'card':
+          return await conversionApi.exportAsCard(cardId, {
+            outputPath: options.outputPath,
+            compress: options.compress,
+            includeResources: options.includeResources,
+            onProgress: options.onProgress,
+          });
+
+        case 'html':
+          return await conversionApi.convertToHTML(
+            {
+              type: 'path',
+              path: await this._getCardPath(cardId),
+              fileType: 'card',
+            },
+            {
+              outputPath: options.outputPath,
+              includeAssets: options.includeAssets,
+              themeId: options.themeId,
+              assetStrategy: options.assetStrategy,
+              onProgress: options.onProgress,
+            }
+          );
+
+        case 'pdf':
+          return await conversionApi.convertToPDF(
+            {
+              type: 'path',
+              path: await this._getCardPath(cardId),
+              fileType: 'card',
+            },
+            {
+              outputPath: options.outputPath,
+              pageFormat: options.pageFormat,
+              orientation: options.orientation,
+              margin: options.margin,
+              themeId: options.themeId,
+              onProgress: options.onProgress,
+            }
+          );
+
+        case 'image':
+          return await conversionApi.convertToImage(
+            {
+              type: 'path',
+              path: await this._getCardPath(cardId),
+              fileType: 'card',
+            },
+            {
+              outputPath: options.outputPath,
+              format: options.format,
+              quality: options.quality,
+              scale: options.scale,
+              width: options.width,
+              height: options.height,
+              transparent: options.transparent,
+              themeId: options.themeId,
+              onProgress: options.onProgress,
+            }
+          );
+
+        default:
+          throw new Error(`Unsupported export format: ${format}`);
+      }
+    } catch (error) {
+      this._logger.error('Export failed', { cardId, format, error });
+      throw error;
+    }
+  }
+
+  /**
+   * 获取卡片文件路径
+   * @private
+   */
+  private async _getCardPath(cardId: ChipsId): Promise<string> {
+    const cachedPath = this._cardMap.get(cardId);
+    if (cachedPath) {
+      return cachedPath;
+    }
+
+    // 通过 FileAPI 查找卡片路径
+    const card = await this.get(cardId);
+    const cardPath = this._cardMap.get(card.id);
+    if (!cardPath) {
+      throw new Error(`Card path not found for ID: ${cardId}`);
+    }
+
+    return cardPath;
+  }
 }

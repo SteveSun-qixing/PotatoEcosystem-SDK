@@ -68,6 +68,7 @@ export class CardAPI {
   private _connector: CoreConnector;
   private _fileApi: FileAPI;
   private _logger: Logger;
+  private _config: ConfigManager;
   private _eventBus: EventBus;
   private _cardMap = new Map<ChipsId, string>(); // ID -> path 映射
 
@@ -83,12 +84,13 @@ export class CardAPI {
     connector: CoreConnector,
     fileApi: FileAPI,
     logger: Logger,
-    _config: ConfigManager,
+    config: ConfigManager,
     eventBus: EventBus
   ) {
     this._connector = connector;
     this._fileApi = fileApi;
     this._logger = logger.createChild('CardAPI');
+    this._config = config;
     this._eventBus = eventBus;
   }
 

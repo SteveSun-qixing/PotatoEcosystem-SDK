@@ -69,6 +69,66 @@ export const ExportErrorCodes = {
 export type ExportErrorCode = (typeof ExportErrorCodes)[keyof typeof ExportErrorCodes];
 
 /**
+ * SDK 内部错误代码
+ */
+export const SDKErrorCodes = {
+  // SDK 状态 (SDK-1xxx)
+  SDK_NOT_INITIALIZED: 'SDK-1001',
+  SDK_INITIALIZING: 'SDK-1002',
+  SDK_DESTROYED: 'SDK-1003',
+} as const;
+
+/**
+ * SDK 错误代码类型
+ */
+export type SDKErrorCode = (typeof SDKErrorCodes)[keyof typeof SDKErrorCodes];
+
+/**
+ * 文件错误代码
+ */
+export const FileErrorCodes = {
+  FILE_NOT_FOUND: 'FILE-1001',
+  FILE_INVALID_PATH: 'FILE-1002',
+  FILE_READ_FAILED: 'FILE-1003',
+  FILE_WRITE_FAILED: 'FILE-1004',
+  FILE_FORMAT_INVALID: 'FILE-1005',
+  FILE_CORRUPTED: 'FILE-1006',
+  FILE_ALREADY_EXISTS: 'FILE-1007',
+} as const;
+
+export type FileErrorCode = (typeof FileErrorCodes)[keyof typeof FileErrorCodes];
+
+/**
+ * 插件错误代码
+ */
+export const PluginErrorCodes = {
+  PLUGIN_NOT_FOUND: 'PLUGIN-1001',
+  PLUGIN_LOAD_FAILED: 'PLUGIN-1002',
+  PLUGIN_DEPENDENCY_MISSING: 'PLUGIN-1003',
+  PLUGIN_ALREADY_EXISTS: 'PLUGIN-1006',
+} as const;
+
+export type PluginErrorCode = (typeof PluginErrorCodes)[keyof typeof PluginErrorCodes];
+
+/**
+ * 渲染错误代码
+ */
+export const RenderErrorCodes = {
+  RENDER_FAILED: 'RENDER-1001',
+} as const;
+
+export type RenderErrorCode = (typeof RenderErrorCodes)[keyof typeof RenderErrorCodes];
+
+/**
+ * 资源错误代码
+ */
+export const ResourceErrorCodes = {
+  RES_NOT_FOUND: 'RES-1001',
+} as const;
+
+export type ResourceErrorCode = (typeof ResourceErrorCodes)[keyof typeof ResourceErrorCodes];
+
+/**
  * 通用错误代码
  */
 export const CommonErrorCodes = {
@@ -120,9 +180,21 @@ export type CommonErrorCode = (typeof CommonErrorCodes)[keyof typeof CommonError
 export const ErrorCodes = {
   ...CommonErrorCodes,
   ...ExportErrorCodes,
+  ...FileErrorCodes,
+  ...PluginErrorCodes,
+  ...RenderErrorCodes,
+  ...ResourceErrorCodes,
+  ...SDKErrorCodes,
 } as const;
 
 /**
  * 错误代码类型
  */
-export type ErrorCode = CommonErrorCode | ExportErrorCode;
+export type ErrorCode =
+  | CommonErrorCode
+  | ExportErrorCode
+  | FileErrorCode
+  | PluginErrorCode
+  | RenderErrorCode
+  | ResourceErrorCode
+  | SDKErrorCode;

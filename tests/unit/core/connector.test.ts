@@ -219,7 +219,7 @@ describe('CoreConnector', () => {
     });
 
     it('应该正确格式化请求', async () => {
-      connector.request({
+      const requestPromise = connector.request({
         service: 'file',
         method: 'read',
         payload: { path: '/test/file.card' },
@@ -232,6 +232,17 @@ describe('CoreConnector', () => {
       expect(sentMessage.payload.action).toBe('file.read');
       expect(sentMessage.payload.params).toEqual({ path: '/test/file.card' });
       expect(sentMessage.payload.sender).toMatch(/^sdk-/);
+
+      mockWs.triggerMessage(
+        JSON.stringify({
+          request_id: sentMessage.id,
+          success: true,
+          data: { ok: true },
+          timestamp: new Date().toISOString(),
+        })
+      );
+
+      await expect(requestPromise).resolves.toMatchObject({ success: true });
     });
   });
 

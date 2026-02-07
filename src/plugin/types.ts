@@ -94,12 +94,29 @@ export type EventHandlerFn = (data: unknown) => void | Promise<void>;
 export interface RendererDefinition {
   /** 渲染器名称 */
   name: string;
-  /** 支持的卡片类型 */
+  /** 支持的卡片类型（PascalCase，如 'ImageCard'、'RichTextCard'） */
   cardTypes: string[];
-  /** 渲染函数 */
+  /** 渲染函数（运行时渲染，用于 Viewer/Editor 中的 iframe 实时渲染） */
   render: (data: unknown, container: HTMLElement) => void | Promise<void>;
   /** 销毁函数 */
   destroy?: () => void;
+  /**
+   * 静态渲染代码（可选）
+   *
+   * 用于 HTML 导出等离线场景。转换插件（如 CardtoHTMLPlugin）在生成静态 HTML 时，
+   * 会优先使用此字段提供的 HTML/CSS 模板，将卡片配置数据通过
+   * window.CHIPS_CARD_CONFIG 注入后生成独立的 HTML 文件。
+   *
+   * 如果插件未提供此字段，转换插件将使用内置的后备渲染器。
+   */
+  rendererCode?: {
+    /** 完整的 HTML 文档模板（包含 script 标签读取 window.CHIPS_CARD_CONFIG） */
+    html: string;
+    /** CSS 样式 */
+    css: string;
+    /** JavaScript 代码（可选，用于额外的交互逻辑） */
+    js?: string;
+  };
 }
 
 /**

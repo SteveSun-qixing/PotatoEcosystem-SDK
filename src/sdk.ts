@@ -27,6 +27,8 @@ export type SDKState = 'idle' | 'initializing' | 'ready' | 'error' | 'destroyed'
 export interface ChipsSDKOptions {
   /** Core 连接选项 */
   connector?: ConnectorOptions;
+  /** 自定义 Core 连接器实例（用于本地桥接/测试） */
+  connectorInstance?: CoreConnector;
   /** 日志选项 */
   logger?: LoggerOptions;
   /** 配置选项 */
@@ -120,7 +122,7 @@ export class ChipsSDK {
     this._config = new ConfigManager(options.config);
     this._eventBus = new EventBus(options.eventBus);
     this._i18n = new I18nManager(options.i18n);
-    this._connector = new CoreConnector(options.connector);
+    this._connector = options.connectorInstance ?? new CoreConnector(options.connector);
 
     // 设置调试模式
     if (options.debug) {

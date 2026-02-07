@@ -3,7 +3,7 @@
  * @module api/conversion-api
  */
 
-import { CoreConnector, FileError, ErrorCodes } from '../core';
+import { CoreConnector } from '../core';
 import { Logger } from '../logger';
 import { ConfigManager } from '../config';
 
@@ -53,6 +53,10 @@ export interface HTMLConversionOptions {
   assetStrategy?: AssetStrategy;
   /** 进度回调 */
   onProgress?: (progress: ConversionProgress) => void;
+  /** 外观配置表 ID（由转换模块统一管理） */
+  appearanceProfileId?: string;
+  /** 外观参数覆盖（用于扩展不同导出外观） */
+  appearanceOverrides?: Record<string, unknown>;
 }
 
 /**
@@ -79,6 +83,10 @@ export interface ImageConversionOptions {
   themeId?: string;
   /** 进度回调 */
   onProgress?: (progress: ConversionProgress) => void;
+  /** 外观配置表 ID（由转换模块统一管理） */
+  appearanceProfileId?: string;
+  /** 外观参数覆盖（用于扩展不同导出外观） */
+  appearanceOverrides?: Record<string, unknown>;
 }
 
 /**
@@ -102,6 +110,12 @@ export interface PDFConversionOptions {
   themeId?: string;
   /** 进度回调 */
   onProgress?: (progress: ConversionProgress) => void;
+  /** 是否打印背景图形 */
+  printBackground?: boolean;
+  /** 外观配置表 ID（由转换模块统一管理） */
+  appearanceProfileId?: string;
+  /** 外观参数覆盖（用于扩展不同导出外观） */
+  appearanceOverrides?: Record<string, unknown>;
 }
 
 /**

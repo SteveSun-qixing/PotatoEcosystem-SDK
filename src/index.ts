@@ -109,7 +109,7 @@ export type {
 } from './resource';
 
 // ========== API 模块 ==========
-export { FileAPI, CardAPI, BoxAPI } from './api';
+export { FileAPI, CardAPI, BoxAPI, ConversionAPI } from './api';
 export type {
   FileInfo,
   LoadOptions,

@@ -82,6 +82,10 @@ export type {
 
 // ========== 渲染引擎 ==========
 export { RendererEngine } from './renderer';
+export { CardParser, createCardParser } from './renderer';
+export { ResourceResolver, createResourceResolver } from './renderer';
+export { RendererFetcher, createRendererFetcher } from './renderer';
+export { CardRenderManager, createCardRenderManager } from './renderer';
 export type {
   RenderTargetType,
   RenderMode,
@@ -93,6 +97,23 @@ export type {
   BoxRenderer,
   RendererEngineOptions,
   RenderEvent,
+  // 资源解析类型
+  ResourceResolveResult,
+  // 新增类型导出
+  ParsedCardMetadata,
+  ParsedCardStructure,
+  ParsedBaseCardConfig,
+  ParsedCardData,
+  CardParseSource,
+  CardParseResult,
+  CardParserOptions,
+  RendererCode,
+  RendererCodeMap,
+  RendererFetcherOptions,
+  IsolationMode,
+  CardRenderManagerOptions,
+  MountedBaseCard,
+  CardMountResult,
 } from './renderer';
 
 // ========== 资源管理 ==========

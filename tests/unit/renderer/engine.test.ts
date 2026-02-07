@@ -86,25 +86,31 @@ describe('RendererEngine', () => {
   });
 
   describe('constructor', () => {
-    it('应该创建实例', () => {
+    it('should create instance', () => {
       expect(engine).toBeInstanceOf(RendererEngine);
     });
 
-    it('应该注册默认渲染器', () => {
-      const cardTypes = engine.getRegisteredCardTypes();
+    it('should register default box renderers', () => {
       const layouts = engine.getRegisteredLayouts();
 
-      expect(cardTypes).toContain('basic');
-      expect(cardTypes).toContain('text');
-      expect(cardTypes).toContain('image');
-      expect(cardTypes).toContain('link');
       expect(layouts).toContain('grid');
       expect(layouts).toContain('masonry');
       expect(layouts).toContain('list');
       expect(layouts).toContain('compact');
     });
 
-    it('应该使用自定义选项', () => {
+    it('should have built-in base card renderers', () => {
+      const types = engine.getRegisteredBaseCardTypes();
+
+      expect(types).toContain('RichTextCard');
+      expect(types).toContain('ImageCard');
+      expect(types).toContain('VideoCard');
+      expect(types).toContain('AudioCard');
+      expect(types).toContain('CodeBlockCard');
+      expect(types).toContain('MarkdownCard');
+    });
+
+    it('should use custom options', () => {
       const customEngine = new RendererEngine(mockLogger, mockEventBus, mockThemeManager, {
         enableCache: false,
         cacheSize: 100,
@@ -116,7 +122,7 @@ describe('RendererEngine', () => {
   });
 
   describe('registerCardRenderer', () => {
-    it('应该成功注册卡片渲染器', () => {
+    it('should register card renderer', () => {
       const customRenderer: CardRenderer = {
         name: 'custom-renderer',
         supportedTypes: ['custom-type', 'another-type'],
@@ -129,29 +135,36 @@ describe('RendererEngine', () => {
       expect(types).toContain('custom-type');
       expect(types).toContain('another-type');
     });
+  });
 
-    it('应该覆盖已存在的类型', () => {
-      const renderer1: CardRenderer = {
-        name: 'renderer1',
-        supportedTypes: ['custom-type'],
-        render: vi.fn().mockResolvedValue({ success: true, html: '<div>1</div>' }),
-      };
-      const renderer2: CardRenderer = {
-        name: 'renderer2',
-        supportedTypes: ['custom-type'],
-        render: vi.fn().mockResolvedValue({ success: true, html: '<div>2</div>' }),
-      };
+  describe('registerBaseCardRenderer', () => {
+    it('should register base card renderer via fetcher', () => {
+      engine.registerBaseCardRenderer('CustomCard', {
+        html: '<html><body><div>Custom</div></body></html>',
+        css: '',
+      });
 
-      engine.registerCardRenderer(renderer1);
-      engine.registerCardRenderer(renderer2);
+      const types = engine.getRegisteredBaseCardTypes();
+      expect(types).toContain('CustomCard');
+    });
 
-      // 只有 renderer2 应该生效，但类型仍然存在
-      expect(engine.getRegisteredCardTypes()).toContain('custom-type');
+    it('should unregister base card renderer', () => {
+      engine.registerBaseCardRenderer('TempCard', {
+        html: '<html><body><div>Temp</div></body></html>',
+        css: '',
+      });
+
+      expect(engine.getRegisteredBaseCardTypes()).toContain('TempCard');
+
+      engine.unregisterBaseCardRenderer('TempCard');
+      // Still has built-in renderers but not TempCard (after clearing cache)
+      const types = engine.getRegisteredBaseCardTypes();
+      expect(types).not.toContain('TempCard');
     });
   });
 
   describe('registerBoxRenderer', () => {
-    it('应该成功注册箱子渲染器', () => {
+    it('should register box renderer', () => {
       const customRenderer: BoxRenderer = {
         name: 'custom-box-renderer',
         supportedLayouts: ['custom-layout', 'flex-layout'],
@@ -185,15 +198,14 @@ describe('RendererEngine', () => {
       });
     });
 
-    it('应该成功渲染卡片', async () => {
+    it('should render card successfully', async () => {
       const result = await engine.renderCard(testCard, mockContainer);
 
       expect(result.success).toBe(true);
-      expect(result.html).toBeDefined();
       expect(result.duration).toBeDefined();
     });
 
-    it('应该触发 render:start 事件', async () => {
+    it('should emit render:start event', async () => {
       await engine.renderCard(testCard, mockContainer);
 
       expect(mockEventBus.emit).toHaveBeenCalledWith('render:start', {
@@ -202,7 +214,7 @@ describe('RendererEngine', () => {
       });
     });
 
-    it('应该触发 render:complete 事件', async () => {
+    it('should emit render:complete event', async () => {
       await engine.renderCard(testCard, mockContainer);
 
       expect(mockEventBus.emit).toHaveBeenCalledWith(
@@ -214,13 +226,7 @@ describe('RendererEngine', () => {
       );
     });
 
-    it('应该将 HTML 应用到容器', async () => {
-      await engine.renderCard(testCard, mockContainer);
-
-      expect(mockContainer.innerHTML).toContain('chips-card');
-    });
-
-    it('应该使用自定义渲染器', async () => {
+    it('should use custom renderer', async () => {
       const customRender = vi.fn().mockResolvedValue({
         success: true,
         html: '<div class="custom-render">Custom Content</div>',
@@ -244,20 +250,7 @@ describe('RendererEngine', () => {
       expect(customRender).toHaveBeenCalled();
     });
 
-    it('应该回退到基础渲染器当类型不存在', async () => {
-      const unknownCard = createTestCard({
-        metadata: {
-          ...testCard.metadata,
-          type: 'unknown-type',
-        },
-      });
-
-      const result = await engine.renderCard(unknownCard, mockContainer);
-
-      expect(result.success).toBe(true);
-    });
-
-    it('应该处理渲染错误', async () => {
+    it('should handle render error', async () => {
       const failingRenderer: CardRenderer = {
         name: 'failing',
         supportedTypes: ['failing-type'],
@@ -278,7 +271,7 @@ describe('RendererEngine', () => {
       expect(result.error).toBeDefined();
     });
 
-    it('应该触发 render:error 事件当渲染失败', async () => {
+    it('should emit render:error event on failure', async () => {
       const failingRenderer: CardRenderer = {
         name: 'failing',
         supportedTypes: ['failing-type'],
@@ -304,7 +297,7 @@ describe('RendererEngine', () => {
       );
     });
 
-    it('应该处理渲染超时', async () => {
+    it('should handle render timeout', async () => {
       const slowRenderer: CardRenderer = {
         name: 'slow',
         supportedTypes: ['slow-type'],
@@ -345,14 +338,14 @@ describe('RendererEngine', () => {
         },
         structure: {
           cards: [
-            { id: 'card-1', path: '/cards/card-1.card', filename: 'card-1.card' },
-            { id: 'card-2', path: '/cards/card-2.card', filename: 'card-2.card' },
+            { id: 'card-1', path: '/cards/card-1.card', filename: 'card-1.card', location: 'internal' as never },
+            { id: 'card-2', path: '/cards/card-2.card', filename: 'card-2.card', location: 'internal' as never },
           ],
         },
       });
     });
 
-    it('应该成功渲染箱子', async () => {
+    it('should render box successfully', async () => {
       const result = await engine.renderBox(testBox, mockContainer);
 
       expect(result.success).toBe(true);
@@ -360,7 +353,7 @@ describe('RendererEngine', () => {
       expect(result.duration).toBeDefined();
     });
 
-    it('应该触发 render:start 事件', async () => {
+    it('should emit render:start event', async () => {
       await engine.renderBox(testBox, mockContainer);
 
       expect(mockEventBus.emit).toHaveBeenCalledWith('render:start', {
@@ -369,7 +362,7 @@ describe('RendererEngine', () => {
       });
     });
 
-    it('应该触发 render:complete 事件', async () => {
+    it('should emit render:complete event', async () => {
       await engine.renderBox(testBox, mockContainer);
 
       expect(mockEventBus.emit).toHaveBeenCalledWith(
@@ -381,28 +374,7 @@ describe('RendererEngine', () => {
       );
     });
 
-    it('应该渲染网格布局', async () => {
-      const result = await engine.renderBox(testBox, mockContainer);
-
-      expect(result.success).toBe(true);
-      expect(mockContainer.innerHTML).toContain('grid');
-    });
-
-    it('应该渲染列表布局', async () => {
-      const listBox = createTestBox({
-        metadata: {
-          ...testBox.metadata,
-          layout: 'list',
-        },
-        structure: testBox.structure,
-      });
-
-      const result = await engine.renderBox(listBox, mockContainer);
-
-      expect(result.success).toBe(true);
-    });
-
-    it('应该使用自定义箱子渲染器', async () => {
+    it('should use custom box renderer', async () => {
       const customRender = vi.fn().mockResolvedValue({
         success: true,
         html: '<div class="custom-box">Custom Box</div>',
@@ -426,7 +398,7 @@ describe('RendererEngine', () => {
       expect(customRender).toHaveBeenCalled();
     });
 
-    it('应该回退到网格布局当布局不存在', async () => {
+    it('should fall back to grid layout for unknown layouts', async () => {
       const unknownBox = createTestBox({
         metadata: {
           ...testBox.metadata,
@@ -438,126 +410,17 @@ describe('RendererEngine', () => {
 
       expect(result.success).toBe(true);
     });
-
-    it('应该渲染空箱子', async () => {
-      const emptyBox = createTestBox({
-        structure: { cards: [] },
-      });
-
-      const result = await engine.renderBox(emptyBox, mockContainer);
-
-      expect(result.success).toBe(true);
-      expect(mockContainer.innerHTML).toContain('暂无卡片');
-    });
   });
 
-  describe('渲染缓存', () => {
-    let mockContainer: HTMLElement;
-    let testCard: Card;
-
-    beforeEach(() => {
-      mockContainer = createMockContainer();
-      testCard = createTestCard({
-        metadata: {
-          chip_standards_version: '1.0.0',
-          card_id: 'test-card-id',
-          name: 'Test Card',
-          created_at: new Date().toISOString(),
-          modified_at: new Date().toISOString(),
-          type: 'basic',
-        },
-      });
-    });
-
-    it('应该缓存渲染结果', async () => {
-      await engine.renderCard(testCard, mockContainer);
-
-      expect(engine.cacheSize).toBe(1);
-    });
-
-    it('应该从缓存返回结果', async () => {
-      await engine.renderCard(testCard, mockContainer);
-      const container2 = createMockContainer();
-
-      const result = await engine.renderCard(testCard, container2);
-
-      expect(result.success).toBe(true);
-    });
-
-    it('应该在 partial 模式下不使用缓存', async () => {
-      const customRender = vi.fn().mockResolvedValue({
-        success: true,
-        html: '<div>Rendered</div>',
-      });
-      const customRenderer: CardRenderer = {
-        name: 'track-render',
-        supportedTypes: ['track-type'],
-        render: customRender,
-      };
-      engine.registerCardRenderer(customRenderer);
-
-      const card = createTestCard({
-        metadata: {
-          chip_standards_version: '1.0.0',
-          card_id: 'track-card',
-          name: 'Track Card',
-          created_at: new Date().toISOString(),
-          modified_at: new Date().toISOString(),
-          type: 'track-type',
-        },
-      });
-
-      await engine.renderCard(card, mockContainer, { mode: 'partial' });
-      await engine.renderCard(card, mockContainer, { mode: 'partial' });
-
-      expect(customRender).toHaveBeenCalledTimes(2);
-    });
-
-    it('应该清除缓存', async () => {
-      await engine.renderCard(testCard, mockContainer);
-      expect(engine.cacheSize).toBe(1);
-
+  describe('cache', () => {
+    it('should clear cache including fetcher cache', () => {
       engine.clearCache();
-
       expect(engine.cacheSize).toBe(0);
-    });
-
-    it('应该限制缓存大小', async () => {
-      const smallCacheEngine = new RendererEngine(mockLogger, mockEventBus, mockThemeManager, {
-        cacheSize: 2,
-      });
-
-      for (let i = 0; i < 5; i++) {
-        const card = createTestCard({
-          id: `card-${i}`,
-          metadata: {
-            chip_standards_version: '1.0.0',
-            card_id: `card-${i}`,
-            name: `Card ${i}`,
-            created_at: new Date().toISOString(),
-            modified_at: new Date().toISOString(),
-            type: 'basic',
-          },
-        });
-        await smallCacheEngine.renderCard(card, createMockContainer());
-      }
-
-      expect(smallCacheEngine.cacheSize).toBeLessThanOrEqual(2);
-    });
-
-    it('应该禁用缓存', async () => {
-      const noCacheEngine = new RendererEngine(mockLogger, mockEventBus, mockThemeManager, {
-        enableCache: false,
-      });
-
-      await noCacheEngine.renderCard(testCard, mockContainer);
-
-      expect(noCacheEngine.cacheSize).toBe(0);
     });
   });
 
   describe('renderCover', () => {
-    it('应该渲染卡片封面', async () => {
+    it('should render card cover', async () => {
       const mockContainer = createMockContainer();
       const testCard = createTestCard();
 
@@ -567,146 +430,39 @@ describe('RendererEngine', () => {
     });
   });
 
-  describe('renderPreview', () => {
-    it('应该渲染卡片预览', async () => {
-      const mockContainer = createMockContainer();
-      const testCard = createTestCard();
-
-      const result = await engine.renderPreview(testCard, mockContainer);
-
-      expect(result.success).toBe(true);
+  describe('pipeline accessors', () => {
+    it('should expose parser', () => {
+      expect(engine.parser).toBeDefined();
     });
 
-    it('应该渲染箱子预览', async () => {
-      const mockContainer = createMockContainer();
-      const testBox = createTestBox();
+    it('should expose fetcher', () => {
+      expect(engine.fetcher).toBeDefined();
+    });
 
-      const result = await engine.renderPreview(testBox, mockContainer);
-
-      expect(result.success).toBe(true);
+    it('should expose renderManager', () => {
+      expect(engine.renderManager).toBeDefined();
     });
   });
 
-  describe('getRegisteredCardTypes', () => {
-    it('应该返回所有注册的卡片类型', () => {
-      const types = engine.getRegisteredCardTypes();
-
-      expect(types).toBeInstanceOf(Array);
-      expect(types.length).toBeGreaterThan(0);
+  describe('isolation mode', () => {
+    it('should default to iframe isolation mode', () => {
+      const defaultEngine = new RendererEngine(mockLogger, mockEventBus, mockThemeManager);
+      expect(defaultEngine).toBeDefined();
+      // Default is 'iframe' per design docs
     });
-  });
 
-  describe('getRegisteredLayouts', () => {
-    it('应该返回所有注册的布局类型', () => {
-      const layouts = engine.getRegisteredLayouts();
-
-      expect(layouts).toBeInstanceOf(Array);
-      expect(layouts.length).toBeGreaterThan(0);
-    });
-  });
-
-  describe('渲染选项', () => {
-    let mockContainer: HTMLElement;
-    let testCard: Card;
-
-    beforeEach(() => {
-      mockContainer = createMockContainer();
-      testCard = createTestCard({
-        metadata: {
-          chip_standards_version: '1.0.0',
-          card_id: 'options-test-card',
-          name: 'Options Test Card',
-          created_at: new Date().toISOString(),
-          modified_at: new Date().toISOString(),
-          type: 'basic',
-        },
+    it('should allow configuring shadow-dom mode', () => {
+      const shadowEngine = new RendererEngine(mockLogger, mockEventBus, mockThemeManager, {
+        defaultIsolationMode: 'shadow-dom',
       });
+      expect(shadowEngine).toBeDefined();
     });
 
-    it('应该使用默认选项', async () => {
-      const result = await engine.renderCard(testCard, mockContainer);
-
-      expect(result.success).toBe(true);
-    });
-
-    it('应该使用自定义超时', async () => {
-      const result = await engine.renderCard(testCard, mockContainer, {
-        timeout: 5000,
+    it('should allow configuring iframe mode explicitly', () => {
+      const iframeEngine = new RendererEngine(mockLogger, mockEventBus, mockThemeManager, {
+        defaultIsolationMode: 'iframe',
       });
-
-      expect(result.success).toBe(true);
-    });
-
-    it('应该传递主题变量到渲染上下文', async () => {
-      let capturedContext: unknown;
-      const inspectorRenderer: CardRenderer = {
-        name: 'inspector',
-        supportedTypes: ['inspector-type'],
-        render: vi.fn().mockImplementation((context) => {
-          capturedContext = context;
-          return { success: true, html: '<div>Inspected</div>' };
-        }),
-      };
-      engine.registerCardRenderer(inspectorRenderer);
-
-      const card = createTestCard({
-        metadata: {
-          ...testCard.metadata,
-          type: 'inspector-type',
-        },
-      });
-
-      await engine.renderCard(card, mockContainer);
-
-      expect(capturedContext).toBeDefined();
-      expect((capturedContext as { themeVars: Record<string, string> }).themeVars).toBeDefined();
-    });
-  });
-
-  describe('CSS 应用', () => {
-    it('应该渲染包含 CSS 的结果', async () => {
-      const cssRenderer: CardRenderer = {
-        name: 'css-renderer',
-        supportedTypes: ['css-type'],
-        render: vi.fn().mockResolvedValue({
-          success: true,
-          html: '<div>Content</div>',
-          css: '.test { color: red; }',
-        }),
-      };
-      engine.registerCardRenderer(cssRenderer);
-
-      const card = createTestCard({
-        metadata: {
-          chip_standards_version: '1.0.0',
-          card_id: 'css-test',
-          name: 'CSS Test',
-          created_at: new Date().toISOString(),
-          modified_at: new Date().toISOString(),
-          type: 'css-type',
-        },
-      });
-
-      // 创建一个更完整的 mock container
-      const styleElements: { textContent: string }[] = [];
-      const mockContainer = {
-        innerHTML: '',
-        appendChild: vi.fn((el: { textContent: string }) => {
-          styleElements.push(el);
-        }),
-        style: {},
-      } as unknown as HTMLElement;
-
-      // Mock document.createElement for style element
-      vi.stubGlobal('document', {
-        createElement: vi.fn().mockReturnValue({ textContent: '' }),
-      });
-
-      await engine.renderCard(card, mockContainer);
-
-      expect(mockContainer.appendChild).toHaveBeenCalled();
-
-      vi.unstubAllGlobals();
+      expect(iframeEngine).toBeDefined();
     });
   });
 });

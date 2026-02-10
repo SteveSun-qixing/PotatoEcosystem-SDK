@@ -146,6 +146,18 @@ export type {
   CreateBoxOptions,
   BoxQueryOptions,
   CardPosition,
+  ConversionSource,
+  ConversionSourceType,
+  AssetStrategy,
+  HTMLConversionOptions,
+  ImageConversionOptions,
+  PDFConversionOptions,
+  CardExportOptions,
+  ConversionStatus,
+  ConversionProgress,
+  ConversionStats,
+  ConversionResult,
+  SupportedConversion,
 } from './api';
 
 // ========== 类型定义 ==========

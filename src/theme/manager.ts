@@ -321,10 +321,10 @@ export class ThemeManager {
 
     // 动画
     for (const [key, value] of Object.entries(theme.animation.duration)) {
-      vars[`--chips-duration-${key}`] = value;
+      vars[`--chips-duration-${this._toKebabCase(key)}`] = value;
     }
     for (const [key, value] of Object.entries(theme.animation.easing)) {
-      vars[`--chips-easing-${key}`] = value;
+      vars[`--chips-easing-${this._toKebabCase(key)}`] = value;
     }
 
     // 自定义变量

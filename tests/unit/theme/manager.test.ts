@@ -514,7 +514,7 @@ describe('ThemeManager', () => {
       expect(vars['--chips-duration-normal']).toBe('200ms');
       expect(vars['--chips-easing-default']).toBe('ease');
       // inOut 转换为 kebab-case 是 in-out
-      expect(vars['--chips-easing-inOut']).toBe('ease-in-out');
+      expect(vars['--chips-easing-in-out']).toBe('ease-in-out');
     });
 
     it('应该包含自定义变量', () => {

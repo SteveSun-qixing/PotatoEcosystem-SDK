@@ -11,6 +11,7 @@ import { I18nManager, I18nManagerOptions } from './i18n';
 import { FileAPI } from './api/file-api';
 import { CardAPI } from './api/card-api';
 import { BoxAPI } from './api/box-api';
+import { ConversionAPI } from './api/conversion-api';
 import { PluginManager, PluginRegistration } from './plugin';
 import { ThemeManager, ThemeManagerOptions, Theme } from './theme';
 import { RendererEngine, RendererEngineOptions } from './renderer';
@@ -105,6 +106,7 @@ export class ChipsSDK {
   private _fileApi!: FileAPI;
   private _cardApi!: CardAPI;
   private _boxApi!: BoxAPI;
+  private _conversionApi!: ConversionAPI;
   private _pluginManager!: PluginManager;
   private _themeManager!: ThemeManager;
   private _rendererEngine!: RendererEngine;
@@ -320,6 +322,14 @@ export class ChipsSDK {
   }
 
   /**
+   * 获取转换 API
+   */
+  get conversion(): ConversionAPI {
+    this._ensureReady();
+    return this._conversionApi;
+  }
+
+  /**
    * 获取插件管理器
    */
   get plugins(): PluginManager {
@@ -442,8 +452,14 @@ export class ChipsSDK {
       this._eventBus
     );
 
+    // 转换 API
+    this._conversionApi = new ConversionAPI(this._connector, this._logger, this._config);
+
     // 插件管理器
     this._pluginManager = new PluginManager(this._logger, this._eventBus, this._config);
+
+    // 多语言管理器绑定 Logger 和 EventBus（I18nManager 在构造函数中已创建，此处补充绑定）
+    this._i18n.bind(this._logger, this._eventBus);
 
     // 主题管理器
     this._themeManager = new ThemeManager(this._logger, this._eventBus, this._options.theme);

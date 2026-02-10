@@ -19,7 +19,7 @@ import { generateUuid } from '../utils/id';
  * 连接器配置默认值
  */
 const DEFAULT_OPTIONS: Required<ConnectorOptions> = {
-  url: 'ws://127.0.0.1:9527',
+  url: 'tcp://127.0.0.1:9527',
   timeout: 30000,
   reconnect: true,
   reconnectDelay: 1000,
@@ -93,49 +93,74 @@ export class CoreConnector {
 
     this._connecting = true;
 
-    return new Promise((resolve, reject) => {
+    // 检查是否在 Electron 环境中
+    const isElectron = typeof window !== 'undefined' && (window as any).electron;
+
+    if (isElectron) {
+      // Electron 环境：通过 IPC 桥接器连接
       try {
-        // 检查 WebSocket 是否可用
-        if (typeof WebSocket === 'undefined') {
-          this._connecting = false;
-          reject(new ConnectionError('WebSocket is not available'));
-          return;
-        }
-
-        this._socket = new WebSocket(this._options.url);
-
-        this._socket.onopen = (): void => {
+        const connected = await (window as any).electron.ipcRenderer.invoke('core:is-connected');
+        if (connected) {
           this._connected = true;
           this._connecting = false;
           this._reconnectAttempts = 0;
           this._startHeartbeat();
-          resolve();
-        };
-
-        this._socket.onmessage = (event: MessageEvent): void => {
-          this._handleMessage(event.data as string);
-        };
-
-        this._socket.onerror = (): void => {
+        } else {
           this._connecting = false;
-          reject(new ConnectionError('WebSocket connection failed'));
-        };
-
-        this._socket.onclose = (): void => {
-          this._connected = false;
-          this._connecting = false;
-          this._stopHeartbeat();
-          this._handleDisconnect();
-        };
+          throw new ConnectionError('IPC bridge not connected to Core');
+        }
       } catch (error) {
         this._connecting = false;
-        reject(
-          new ConnectionError('Failed to create WebSocket connection', {
-            error: String(error),
-          })
-        );
+        throw new ConnectionError('Failed to connect via IPC bridge', {
+          error: String(error),
+        });
       }
-    });
+    } else {
+      // Web 环境：使用 WebSocket
+      return new Promise((resolve, reject) => {
+        try {
+          // 检查 WebSocket 是否可用
+          if (typeof WebSocket === 'undefined') {
+            this._connecting = false;
+            reject(new ConnectionError('WebSocket is not available'));
+            return;
+          }
+
+          this._socket = new WebSocket(this._options.url);
+
+          this._socket.onopen = (): void => {
+            this._connected = true;
+            this._connecting = false;
+            this._reconnectAttempts = 0;
+            this._startHeartbeat();
+            resolve();
+          };
+
+          this._socket.onmessage = (event: MessageEvent): void => {
+            this._handleMessage(event.data as string);
+          };
+
+          this._socket.onerror = (): void => {
+            this._connecting = false;
+            reject(new ConnectionError('WebSocket connection failed'));
+          };
+
+          this._socket.onclose = (): void => {
+            this._connected = false;
+            this._connecting = false;
+            this._stopHeartbeat();
+            this._handleDisconnect();
+          };
+        } catch (error) {
+          this._connecting = false;
+          reject(
+            new ConnectionError('Failed to create WebSocket connection', {
+              error: String(error),
+            })
+          );
+        }
+      });
+    }
   }
 
   /**
@@ -170,7 +195,7 @@ export class CoreConnector {
    * @throws {TimeoutError} 请求超时时抛出
    */
   async request<T = unknown>(params: RequestParams): Promise<ResponseData<T>> {
-    if (!this._connected || !this._socket) {
+    if (!this._connected) {
       throw new ConnectionError('Not connected to Core');
     }
 
@@ -189,35 +214,59 @@ export class CoreConnector {
       timestamp: new Date().toISOString(),
     };
 
-    return new Promise((resolve, reject) => {
-      const timeoutHandle = setTimeout(() => {
-        this._pendingRequests.delete(id);
-        reject(
-          new TimeoutError(`Request timed out after ${timeout}ms`, {
-            service: params.service,
-            method: params.method,
-          })
-        );
-      }, timeout);
+    // 检查是否在 Electron 环境中
+    const isElectron = typeof window !== 'undefined' && (window as any).electron;
 
-      this._pendingRequests.set(id, {
-        resolve: resolve as (value: ResponseData) => void,
-        reject,
-        timeout: timeoutHandle,
-      });
-
+    if (isElectron) {
+      // Electron 环境：通过 IPC 发送请求
       try {
-        this._socket!.send(JSON.stringify(request) + '\n');
+        const response = await (window as any).electron.ipcRenderer.invoke('core:request', request);
+        return {
+          success: response.success,
+          data: response.data as T,
+          error: response.error,
+        };
       } catch (error) {
-        this._pendingRequests.delete(id);
-        clearTimeout(timeoutHandle);
-        reject(
-          new ConnectionError('Failed to send request', {
-            error: String(error),
-          })
-        );
+        throw new ConnectionError('Failed to send request via IPC', {
+          error: String(error),
+        });
       }
-    });
+    } else {
+      // Web 环境：使用 WebSocket
+      if (!this._socket) {
+        throw new ConnectionError('WebSocket not initialized');
+      }
+
+      return new Promise((resolve, reject) => {
+        const timeoutHandle = setTimeout(() => {
+          this._pendingRequests.delete(id);
+          reject(
+            new TimeoutError(`Request timed out after ${timeout}ms`, {
+              service: params.service,
+              method: params.method,
+            })
+          );
+        }, timeout);
+
+        this._pendingRequests.set(id, {
+          resolve: resolve as (value: ResponseData) => void,
+          reject,
+          timeout: timeoutHandle,
+        });
+
+        try {
+          this._socket!.send(JSON.stringify(request) + '\n');
+        } catch (error) {
+          this._pendingRequests.delete(id);
+          clearTimeout(timeoutHandle);
+          reject(
+            new ConnectionError('Failed to send request', {
+              error: String(error),
+            })
+          );
+        }
+      });
+    }
   }
 
   /**

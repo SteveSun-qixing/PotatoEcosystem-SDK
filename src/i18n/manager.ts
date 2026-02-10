@@ -4,6 +4,8 @@
  */
 
 import { Locale, Translation, I18nManagerOptions, PluralRules, LocaleChangeHandler } from './types';
+import type { Logger } from '../logger';
+import type { EventBus } from '../event';
 
 /**
  * 默认选项
@@ -87,14 +89,20 @@ export class I18nManager {
   private _currentLocale: Locale;
   private _translations = new Map<Locale, Translation>();
   private _changeHandlers = new Set<LocaleChangeHandler>();
+  private _logger?: Logger;
+  private _eventBus?: EventBus;
 
   /**
    * 创建多语言管理器
    * @param options - 配置选项
+   * @param logger - 日志实例（可选，用于调试日志）
+   * @param eventBus - 事件总线（可选，用于发布语言变更事件）
    */
-  constructor(options?: I18nManagerOptions) {
+  constructor(options?: I18nManagerOptions, logger?: Logger, eventBus?: EventBus) {
     this._options = { ...DEFAULT_OPTIONS, ...options };
     this._currentLocale = this._options.defaultLocale;
+    this._logger = logger?.createChild('I18nManager');
+    this._eventBus = eventBus;
 
     // 添加内置翻译
     this._translations.set('zh-CN', ZH_CN_TRANSLATIONS);
@@ -104,6 +112,16 @@ export class I18nManager {
     for (const [locale, translation] of Object.entries(this._options.translations)) {
       this.addTranslation(locale, translation);
     }
+  }
+
+  /**
+   * 绑定日志和事件总线（在 SDK 初始化后调用）
+   * @param logger - 日志实例
+   * @param eventBus - 事件总线
+   */
+  bind(logger: Logger, eventBus: EventBus): void {
+    this._logger = logger.createChild('I18nManager');
+    this._eventBus = eventBus;
   }
 
   /**
@@ -154,21 +172,25 @@ export class I18nManager {
    * @param params - 额外参数
    */
   plural(key: string, count: number, params?: Record<string, string | number>): string {
-    const rules = this._getTranslation(key, this._currentLocale) as unknown as PluralRules;
+    const rules = this._getTranslationRaw(key, this._currentLocale);
 
+    // 如果不是复数规则对象，回退到普通翻译
     if (!rules || typeof rules !== 'object') {
       return this.t(key, { ...params, count });
     }
 
+    const pluralRules = rules as unknown as PluralRules;
     let template: string;
-    if (count === 0 && rules.zero) {
-      template = rules.zero;
-    } else if (count === 1 && rules.one) {
-      template = rules.one;
-    } else if (count === 2 && rules.two) {
-      template = rules.two;
+    if (count === 0 && pluralRules.zero) {
+      template = pluralRules.zero;
+    } else if (count === 1 && pluralRules.one) {
+      template = pluralRules.one;
+    } else if (count === 2 && pluralRules.two) {
+      template = pluralRules.two;
+    } else if (pluralRules.other) {
+      template = pluralRules.other;
     } else {
-      template = rules.other;
+      return this.t(key, { ...params, count });
     }
 
     return this._interpolate(template, { ...params, count });
@@ -216,9 +238,17 @@ export class I18nManager {
   }
 
   /**
-   * 获取翻译值
+   * 获取翻译值（仅返回字符串）
    */
   private _getTranslation(key: string, locale: Locale): string | undefined {
+    const raw = this._getTranslationRaw(key, locale);
+    return typeof raw === 'string' ? raw : undefined;
+  }
+
+  /**
+   * 获取翻译原始值（包括对象类型，用于复数规则等）
+   */
+  private _getTranslationRaw(key: string, locale: Locale): Translation | string | undefined {
     const translation = this._translations.get(locale);
     if (!translation) return undefined;
 
@@ -232,7 +262,7 @@ export class I18nManager {
       current = current[part] as Translation | string;
     }
 
-    return typeof current === 'string' ? current : undefined;
+    return current;
   }
 
   /**
@@ -270,6 +300,16 @@ export class I18nManager {
    * 通知语言变更
    */
   private _notifyChange(locale: Locale): void {
+    this._logger?.info('Locale changed', { locale });
+
+    // 通过 EventBus 发布语言变更事件（与 ThemeManager 的 theme:changed 事件对称）
+    if (this._eventBus) {
+      this._eventBus.emitSync('i18n:localeChanged', {
+        locale,
+      });
+    }
+
+    // 通知本地注册的 handler
     for (const handler of this._changeHandlers) {
       try {
         handler(locale);

@@ -3,8 +3,8 @@
  * @module core
  */
 
-// 连接器
-export { CoreConnector } from './connector';
+// Bridge 客户端
+export { BridgeClient, BridgeClient as CoreConnector } from '../bridge';
 
 // 错误类
 export {
@@ -29,12 +29,9 @@ export type {
   MessageType,
   IpcRequest,
   IpcResponse,
-  RoutePayload,
-  PublishPayload,
-  SubscribePayload,
-  ConfigPayload,
   EventMessage,
   RequestParams,
   ResponseData,
+  BridgeClientOptions,
   ConnectorOptions,
 } from './types';

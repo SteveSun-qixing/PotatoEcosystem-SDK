@@ -1,17 +1,20 @@
 /**
- * Mock CoreConnector 用于测试
+ * Mock BridgeClient 用于测试
  */
 
 import { RequestParams, ResponseData } from '../../src/core';
 
+type EventHandler = (payload: unknown) => void;
+
 /**
  * Mock 连接器类
  */
-export class MockCoreConnector {
+export class MockBridgeClient {
   private _responses = new Map<string, unknown>();
   private _errors = new Map<string, { code: string; message: string }>();
   private _connected = false;
   private _requests: RequestParams[] = [];
+  private _eventHandlers = new Map<string, Set<EventHandler>>();
 
   /**
    * 模拟连接
@@ -68,6 +71,70 @@ export class MockCoreConnector {
   }
 
   /**
+   * Bridge invoke（与 request 同源）
+   */
+  async invoke<T = unknown>(namespace: string, action: string, params?: unknown): Promise<T> {
+    const payload =
+      typeof params === 'object' && params !== null
+        ? (params as Record<string, unknown>)
+        : {};
+
+    const response = await this.request<T>({
+      service: namespace,
+      method: action,
+      payload,
+    });
+
+    if (!response.success || typeof response.data === 'undefined') {
+      const mockedError = this._errors.get(`${namespace}.${action}`);
+      throw {
+        code: mockedError?.code ?? 'MOCK_ERROR',
+        message: response.error ?? `No mock for ${namespace}.${action}`,
+      };
+    }
+
+    return response.data;
+  }
+
+  /**
+   * 事件订阅
+   */
+  on(event: string, callback: EventHandler): () => void {
+    if (!this._eventHandlers.has(event)) {
+      this._eventHandlers.set(event, new Set());
+    }
+    this._eventHandlers.get(event)!.add(callback);
+
+    return () => {
+      this._eventHandlers.get(event)?.delete(callback);
+    };
+  }
+
+  /**
+   * 一次性事件订阅
+   */
+  once(event: string, callback: EventHandler): () => void {
+    const unsubscribe = this.on(event, (payload) => {
+      unsubscribe();
+      callback(payload);
+    });
+    return unsubscribe;
+  }
+
+  /**
+   * 发送事件
+   */
+  emit(event: string, payload?: unknown): void {
+    const handlers = this._eventHandlers.get(event);
+    if (!handlers) {
+      return;
+    }
+    for (const handler of handlers) {
+      handler(payload);
+    }
+  }
+
+  /**
    * 获取所有请求记录
    */
   getRequests(): RequestParams[] {
@@ -88,5 +155,6 @@ export class MockCoreConnector {
     this._responses.clear();
     this._errors.clear();
     this._requests = [];
+    this._eventHandlers.clear();
   }
 }

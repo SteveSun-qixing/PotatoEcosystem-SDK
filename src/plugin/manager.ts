@@ -7,6 +7,7 @@ import { PluginError, ErrorCodes } from '../core';
 import { Logger } from '../logger';
 import { EventBus } from '../event';
 import { ConfigManager } from '../config';
+import { BridgeClient, BridgePluginInfo, BridgePluginSelfInfo } from '../bridge';
 import {
   PluginState,
   PluginMetadata,
@@ -44,6 +45,8 @@ export class PluginManager {
   private _renderers = new Map<string, { pluginId: string; renderer: RendererDefinition }>();
   private _logger: Logger;
   private _eventBus: EventBus;
+  private _bridge?: BridgeClient;
+  private _bridgeSubscriptions: Array<() => void> = [];
 
   /**
    * 创建插件管理器
@@ -54,6 +57,74 @@ export class PluginManager {
   constructor(logger: Logger, eventBus: EventBus, _config: ConfigManager) {
     this._logger = logger.createChild('PluginManager');
     this._eventBus = eventBus;
+  }
+
+  /**
+   * 绑定 Bridge 客户端
+   * @param bridge - Bridge 客户端
+   */
+  bindBridge(bridge: BridgeClient): void {
+    this._bridge = bridge;
+    this._teardownBridgeSubscriptions();
+    if (!bridge.isConnected) {
+      return;
+    }
+    this._setupBridgeSubscriptions();
+  }
+
+  /**
+   * 读取主机插件列表
+   * @param filter - 过滤条件
+   */
+  async listInstalled(filter?: { type?: string; capability?: string }): Promise<PluginMetadata[]> {
+    if (!this._bridge) {
+      return this.list().map((plugin) => plugin.metadata);
+    }
+
+    const records = await this._bridge.invoke<BridgePluginInfo[]>(
+      'plugin',
+      'list',
+      filter ? { filter } : {}
+    );
+    return records.map((item) => this._toPluginMetadata(item));
+  }
+
+  /**
+   * 获取主机已安装插件详情
+   * @param pluginId - 插件 ID
+   */
+  async getInstalled(pluginId: string): Promise<PluginMetadata | null> {
+    if (!this._bridge) {
+      return this.getMetadata(pluginId) ?? null;
+    }
+
+    const record = await this._bridge.invoke<BridgePluginInfo | null>('plugin', 'get', {
+      pluginId,
+    });
+
+    if (!record) {
+      return null;
+    }
+
+    return this._toPluginMetadata(record);
+  }
+
+  /**
+   * 获取当前插件信息
+   */
+  async getSelf(): Promise<PluginMetadata | null> {
+    if (!this._bridge) {
+      return null;
+    }
+
+    const self = await this._bridge.invoke<BridgePluginSelfInfo>('plugin', 'getSelf', {});
+    return {
+      id: self.id,
+      name: self.id,
+      version: self.version,
+      description: '',
+      chipStandardsVersion: '1.0.0',
+    };
   }
 
   /**
@@ -402,5 +473,47 @@ export class PluginManager {
         this._renderers.delete(name);
       }
     }
+  }
+
+  private _setupBridgeSubscriptions(): void {
+    if (!this._bridge) {
+      return;
+    }
+
+    this._bridgeSubscriptions.push(
+      this._bridge.on('plugin.installed', (payload) => {
+        this._eventBus.emitSync('plugin:installed', payload);
+      })
+    );
+
+    this._bridgeSubscriptions.push(
+      this._bridge.on('plugin.uninstalled', (payload) => {
+        this._eventBus.emitSync('plugin:uninstalled', payload);
+      })
+    );
+
+    this._bridgeSubscriptions.push(
+      this._bridge.on('plugin.updated', (payload) => {
+        this._eventBus.emitSync('plugin:updated', payload);
+      })
+    );
+  }
+
+  private _teardownBridgeSubscriptions(): void {
+    for (const unsubscribe of this._bridgeSubscriptions) {
+      unsubscribe();
+    }
+    this._bridgeSubscriptions = [];
+  }
+
+  private _toPluginMetadata(plugin: BridgePluginInfo): PluginMetadata {
+    return {
+      id: plugin.id,
+      name: plugin.name,
+      version: plugin.version,
+      description: plugin.description,
+      author: plugin.publisher,
+      chipStandardsVersion: '1.0.0',
+    };
   }
 }

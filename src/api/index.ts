@@ -7,6 +7,7 @@ export { FileAPI } from './file-api';
 export { CardAPI } from './card-api';
 export { BoxAPI } from './box-api';
 export { ConversionAPI } from './conversion-api';
+export { ImageViewerAPI } from './image-viewer-api';
 
 export type {
   FileInfo,
@@ -45,3 +46,10 @@ export type {
   ConversionResult,
   SupportedConversion,
 } from './conversion-api';
+
+export type {
+  ImageViewerFitMode,
+  ImageViewerOpenOptions,
+  ImageViewerSnapshot,
+  ImageViewerListItem,
+} from './image-viewer-api';

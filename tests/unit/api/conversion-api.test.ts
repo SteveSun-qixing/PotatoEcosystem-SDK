@@ -4,14 +4,14 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ConversionAPI } from '../../../src/api/conversion-api';
-import type { CoreConnector } from '../../../src/core/connector';
+import type { BridgeClient } from '../../../src/bridge';
 import type { Logger } from '../../../src/logger/logger';
 import type { ConfigManager } from '../../../src/config/manager';
 import { createMockConnector, createMockLogger, createMockConfig } from '../../helpers';
 
 describe('ConversionAPI', () => {
   let conversionApi: ConversionAPI;
-  let mockConnector: CoreConnector;
+  let mockConnector: BridgeClient;
   let mockLogger: Logger;
   let mockConfig: ConfigManager;
 

@@ -3,10 +3,11 @@
  * @module api/box-api
  */
 
-import { CoreConnector, FileError, ErrorCodes } from '../core';
+import { FileError, ErrorCodes } from '../core';
 import { Logger } from '../logger';
 import { ConfigManager } from '../config';
 import { EventBus } from '../event';
+import { BridgeClient } from '../bridge';
 import { Box, BoxMetadata, BoxStructure, BoxContent, BoxCardInfo, QueryBoxOptions } from '../types/box';
 import { ChipsId, Tag, Timestamp, LocationType } from '../types/base';
 import { FileAPI } from './file-api';
@@ -57,7 +58,7 @@ export interface CardPosition {
  *
  * @example
  * ```ts
- * const boxApi = new BoxAPI(connector, fileApi, logger, config, eventBus);
+ * const boxApi = new BoxAPI(bridge, fileApi, logger, config, eventBus);
  *
  * // 创建箱子
  * const box = await boxApi.create({ name: 'My Box', layout: 'grid' });
@@ -67,7 +68,7 @@ export interface CardPosition {
  * ```
  */
 export class BoxAPI {
-  private _connector: CoreConnector;
+  private _bridge: BridgeClient;
   private _fileApi: FileAPI;
   private _logger: Logger;
   private _eventBus: EventBus;
@@ -77,13 +78,13 @@ export class BoxAPI {
    * 创建箱子 API
    */
   constructor(
-    connector: CoreConnector,
+    bridge: BridgeClient,
     fileApi: FileAPI,
     logger: Logger,
     _config: ConfigManager,
     eventBus: EventBus
   ) {
-    this._connector = connector;
+    this._bridge = bridge;
     this._fileApi = fileApi;
     this._logger = logger.createChild('BoxAPI');
     this._eventBus = eventBus;
@@ -150,7 +151,7 @@ export class BoxAPI {
       return this._fileApi.loadBox(path, options);
     }
 
-    const response = await this._connector.request<{ path: string }>({
+    const response = await this._bridge.request<{ path: string }>({
       service: 'box',
       method: 'findById',
       payload: { id: idOrPath },
@@ -231,7 +232,7 @@ export class BoxAPI {
       id = idOrPath;
       path = this._boxMap.get(id) || '';
       if (!path) {
-        const response = await this._connector.request<{ path: string }>({
+        const response = await this._bridge.request<{ path: string }>({
           service: 'box',
           method: 'findById',
           payload: { id },
@@ -256,7 +257,7 @@ export class BoxAPI {
    * @param options - 查询选项
    */
   async query(options?: BoxQueryOptions): Promise<Box[]> {
-    const response = await this._connector.request<{ boxes: { id: string; path: string }[] }>({
+    const response = await this._bridge.request<{ boxes: { id: string; path: string }[] }>({
       service: 'box',
       method: 'query',
       payload: options ? { ...options } : {},

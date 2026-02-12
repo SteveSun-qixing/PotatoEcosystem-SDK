@@ -5,6 +5,7 @@
 
 import { Logger } from '../logger';
 import { EventBus } from '../event';
+import { BridgeClient } from '../bridge';
 import {
   Theme,
   ThemeMetadata,
@@ -155,6 +156,8 @@ export class ThemeManager {
   private _currentThemeId: string;
   private _logger: Logger;
   private _eventBus: EventBus;
+  private _bridge?: BridgeClient;
+  private _bridgeThemeSubscription?: () => void;
 
   /**
    * 创建主题管理器
@@ -162,7 +165,12 @@ export class ThemeManager {
    * @param eventBus - 事件总线
    * @param options - 配置选项
    */
-  constructor(logger: Logger, eventBus: EventBus, options?: ThemeManagerOptions) {
+  constructor(
+    logger: Logger,
+    eventBus: EventBus,
+    options?: ThemeManagerOptions,
+    bridge?: BridgeClient
+  ) {
     this._logger = logger.createChild('ThemeManager');
     this._eventBus = eventBus;
 
@@ -179,6 +187,42 @@ export class ThemeManager {
 
     // 设置默认主题
     this._currentThemeId = options?.defaultTheme || 'default-light';
+
+    if (bridge) {
+      this.bindBridge(bridge);
+    }
+  }
+
+  /**
+   * 绑定 Bridge 客户端
+   * @param bridge - Bridge 客户端
+   */
+  bindBridge(bridge: BridgeClient): void {
+    this._bridge = bridge;
+
+    if (this._bridgeThemeSubscription) {
+      this._bridgeThemeSubscription();
+    }
+
+    if (!bridge.isConnected) {
+      this._bridgeThemeSubscription = undefined;
+      return;
+    }
+
+    this._bridgeThemeSubscription = bridge.on('theme.changed', (payload) => {
+      if (typeof payload !== 'object' || payload === null) {
+        return;
+      }
+
+      const maybeThemeId = (payload as Record<string, unknown>).themeId;
+      if (typeof maybeThemeId !== 'string') {
+        return;
+      }
+
+      if (this._themes.has(maybeThemeId)) {
+        this.setTheme(maybeThemeId);
+      }
+    });
   }
 
   /**
@@ -336,6 +380,41 @@ export class ThemeManager {
   }
 
   /**
+   * 获取主题 CSS 文本（优先通过 Bridge）
+   * @param componentType - 组件类型
+   */
+  async getThemeCSS(componentType?: string): Promise<string> {
+    if (this._bridge) {
+      const css = await this._bridge.invoke<string>('theme', 'getCSS', {
+        componentType,
+      });
+      if (typeof css === 'string') {
+        return css;
+      }
+    }
+
+    const variables = this.getCSSVariables();
+    return Object.entries(variables)
+      .map(([key, value]) => `${key}: ${value};`)
+      .join('\n');
+  }
+
+  /**
+   * 从 Bridge 同步当前主题
+   */
+  async syncFromBridge(): Promise<void> {
+    if (!this._bridge) {
+      return;
+    }
+
+    const current = await this._bridge.invoke<Record<string, unknown>>('theme', 'getCurrent', {});
+    const themeId = current.themeId;
+    if (typeof themeId === 'string' && this._themes.has(themeId)) {
+      this.setTheme(themeId);
+    }
+  }
+
+  /**
    * 应用主题到 DOM
    * @param root - 根元素
    */
@@ -370,6 +449,16 @@ export class ThemeManager {
     const preference = this.detectSystemTheme();
     const themeId = preference === 'dark' ? 'default-dark' : 'default-light';
     this.setTheme(themeId);
+  }
+
+  /**
+   * 销毁管理器资源
+   */
+  destroy(): void {
+    if (this._bridgeThemeSubscription) {
+      this._bridgeThemeSubscription();
+      this._bridgeThemeSubscription = undefined;
+    }
   }
 
   // ========== 私有方法 ==========

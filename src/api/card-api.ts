@@ -3,10 +3,11 @@
  * @module api/card-api
  */
 
-import { CoreConnector, FileError, ErrorCodes } from '../core';
+import { FileError, ErrorCodes } from '../core';
 import { Logger } from '../logger';
 import { ConfigManager } from '../config';
 import { EventBus } from '../event';
+import { BridgeClient } from '../bridge';
 import { Card, CardMetadata, CardStructure, QueryCardOptions, UpdateCardOptions as CardUpdateOptions } from '../types/card';
 import { ChipsId, Tag } from '../types/base';
 import { FileAPI } from './file-api';
@@ -52,7 +53,7 @@ export interface UpdateCardOptions extends CardUpdateOptions {
  *
  * @example
  * ```ts
- * const cardApi = new CardAPI(connector, fileApi, logger, config, eventBus);
+ * const cardApi = new CardAPI(bridge, fileApi, logger, config, eventBus);
  *
  * // 创建卡片
  * const card = await cardApi.create({ name: 'My Card' });
@@ -65,7 +66,7 @@ export interface UpdateCardOptions extends CardUpdateOptions {
  * ```
  */
 export class CardAPI {
-  private _connector: CoreConnector;
+  private _bridge: BridgeClient;
   private _fileApi: FileAPI;
   private _logger: Logger;
   private _config: ConfigManager;
@@ -74,20 +75,20 @@ export class CardAPI {
 
   /**
    * 创建卡片 API
-   * @param connector - Core 连接器
+   * @param bridge - Bridge 客户端
    * @param fileApi - 文件 API
    * @param logger - 日志实例
    * @param config - 配置管理器
    * @param eventBus - 事件总线
    */
   constructor(
-    connector: CoreConnector,
+    bridge: BridgeClient,
     fileApi: FileAPI,
     logger: Logger,
     config: ConfigManager,
     eventBus: EventBus
   ) {
-    this._connector = connector;
+    this._bridge = bridge;
     this._fileApi = fileApi;
     this._logger = logger.createChild('CardAPI');
     this._config = config;
@@ -160,7 +161,7 @@ export class CardAPI {
     }
 
     // 通过 Core 查找
-    const response = await this._connector.request<{ path: string }>({
+    const response = await this._bridge.request<{ path: string }>({
       service: 'card',
       method: 'findById',
       payload: { id: idOrPath },
@@ -251,7 +252,7 @@ export class CardAPI {
       id = idOrPath;
       path = this._cardMap.get(id) || '';
       if (!path) {
-        const response = await this._connector.request<{ path: string }>({
+        const response = await this._bridge.request<{ path: string }>({
           service: 'card',
           method: 'findById',
           payload: { id },
@@ -277,7 +278,7 @@ export class CardAPI {
    * @param options - 查询选项
    */
   async query(options?: CardQueryOptions): Promise<Card[]> {
-    const response = await this._connector.request<{ cards: { id: string; path: string }[] }>({
+    const response = await this._bridge.request<{ cards: { id: string; path: string }[] }>({
       service: 'card',
       method: 'query',
       payload: options ? { ...options } : {},
@@ -426,7 +427,7 @@ export class CardAPI {
       // 导入 ConversionAPI（避免循环依赖）
       const { ConversionAPI } = await import('./conversion-api');
       const conversionApi = new ConversionAPI(
-        this._connector,
+        this._bridge,
         this._logger,
         this._config as any
       );

@@ -198,6 +198,15 @@ export interface ThemeManagerOptions {
   autoDetect?: boolean;
   /** 主题列表 */
   themes?: Theme[];
+  /** 自动应用 CSS 变量到 DOM（默认 true） */
+  autoApply?: boolean;
+  /** 开发模式 CSS 加载器选项 */
+  devCssLoader?: {
+    /** 主题包的 CSS 基础路径 */
+    themeBasePath?: string;
+    /** 需要加载的组件 CSS 文件列表 */
+    componentFiles?: string[];
+  };
 }
 
 /**

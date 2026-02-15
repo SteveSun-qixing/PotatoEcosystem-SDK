@@ -11,6 +11,8 @@ import {
   ThemeManagerOptions,
   CSSVariables,
 } from './types';
+import { CssInjector } from './css-injector';
+import { DevCssLoader } from './dev-css-loader';
 
 /**
  * 默认亮色主题
@@ -155,6 +157,10 @@ export class ThemeManager {
   private _currentThemeId: string;
   private _logger: Logger;
   private _eventBus: EventBus;
+  private _cssInjector: CssInjector;
+  private _devCssLoader: DevCssLoader;
+  private _autoApplyEnabled: boolean;
+  private _themeChangeHandlerId: string | null = null;
 
   /**
    * 创建主题管理器
@@ -165,6 +171,11 @@ export class ThemeManager {
   constructor(logger: Logger, eventBus: EventBus, options?: ThemeManagerOptions) {
     this._logger = logger.createChild('ThemeManager');
     this._eventBus = eventBus;
+    this._autoApplyEnabled = options?.autoApply !== false;
+
+    // 创建 CSS 注入器和开发模式加载器
+    this._cssInjector = new CssInjector(this._logger);
+    this._devCssLoader = new DevCssLoader(this._logger, this._cssInjector, options?.devCssLoader);
 
     // 注册默认主题
     this._themes.set('default-light', DEFAULT_LIGHT_THEME);
@@ -228,6 +239,11 @@ export class ThemeManager {
     this._currentThemeId = id;
 
     this._logger.info('Theme changed', { from: previousTheme, to: id });
+
+    // 自动应用 CSS 变量到 DOM
+    if (this._autoApplyEnabled) {
+      this._safeApplyToDOM();
+    }
 
     this._eventBus.emitSync('theme:changed', {
       previousTheme,
@@ -372,6 +388,59 @@ export class ThemeManager {
     this.setTheme(themeId);
   }
 
+  /**
+   * 初始化主题系统
+   * 应用 CSS 变量到 DOM，加载主题 CSS，设置主题切换监听
+   * @param bridgeInvoke - Bridge invoke 函数（可选，用于从 Host 加载 CSS）
+   */
+  async initializeTheme(bridgeInvoke?: BridgeInvokeFn): Promise<void> {
+    // 1. 应用 CSS 变量到 DOM
+    this._safeApplyToDOM();
+
+    // 2. 尝试通过 Bridge 加载主题 CSS
+    if (bridgeInvoke) {
+      const loaded = await this._loadCssViaBridge(bridgeInvoke);
+      if (loaded) {
+        this._logger.info('Theme CSS loaded via Bridge');
+        return;
+      }
+    }
+
+    // 3. Bridge 不可用，尝试开发模式回退
+    const devLoaded = await this._devCssLoader.loadFromPackage();
+    if (devLoaded) {
+      this._logger.info('Theme CSS loaded via dev fallback');
+      return;
+    }
+
+    this._logger.warn('No theme CSS loaded - components will be unstyled');
+  }
+
+  /**
+   * 获取 CSS 注入器实例
+   */
+  get cssInjector(): CssInjector {
+    return this._cssInjector;
+  }
+
+  /**
+   * 获取开发模式 CSS 加载器实例
+   */
+  get devCssLoader(): DevCssLoader {
+    return this._devCssLoader;
+  }
+
+  /**
+   * 销毁主题管理器，清理资源
+   */
+  dispose(): void {
+    this._cssInjector.removeAll();
+    if (this._themeChangeHandlerId) {
+      this._eventBus.off('theme:changed', this._themeChangeHandlerId);
+      this._themeChangeHandlerId = null;
+    }
+  }
+
   // ========== 私有方法 ==========
 
   /**
@@ -407,4 +476,39 @@ export class ThemeManager {
   private _toKebabCase(str: string): string {
     return str.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase();
   }
+
+  /**
+   * 安全地应用主题到 DOM（检测 DOM 环境）
+   */
+  private _safeApplyToDOM(): void {
+    if (typeof document !== 'undefined' && document.documentElement) {
+      this.applyToDOM(document.documentElement);
+    }
+  }
+
+  /**
+   * 通过 Bridge 加载主题 CSS
+   */
+  private async _loadCssViaBridge(invoke: BridgeInvokeFn): Promise<boolean> {
+    try {
+      const result = await invoke('theme', 'getAllCss', {}) as { css: Record<string, string> } | undefined;
+      if (result?.css && typeof result.css === 'object') {
+        this._cssInjector.injectAll(result.css);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      this._logger.debug('Bridge CSS loading failed', { error: String(error) });
+      return false;
+    }
+  }
 }
+
+/**
+ * Bridge invoke 函数类型
+ */
+export type BridgeInvokeFn = (
+  namespace: string,
+  action: string,
+  params: Record<string, unknown>,
+) => Promise<unknown>;

@@ -167,6 +167,22 @@ export class ChipsSDK {
       // 创建功能模块
       this._initializeModules();
 
+      // 初始化主题系统（应用 CSS 变量 + 加载主题 CSS）
+      // 主题 CSS 加载是非阻塞的，不影响 SDK 就绪状态
+      const bridgeInvoke = this._connector.isConnected
+        ? async (ns: string, action: string, params: Record<string, unknown>) => {
+            const response = await this._connector.request({
+              service: ns,
+              method: action,
+              payload: params,
+            });
+            return response.data;
+          }
+        : undefined;
+      this._themeManager.initializeTheme(bridgeInvoke).catch((err) => {
+        this._logger.warn('Theme initialization failed (non-blocking)', { error: String(err) });
+      });
+
       this._state = 'ready';
       this._logger.info('SDK initialized successfully');
 
@@ -207,6 +223,11 @@ export class ChipsSDK {
     // 清除渲染缓存
     if (this._rendererEngine) {
       this._rendererEngine.clearCache();
+    }
+
+    // 清理主题资源
+    if (this._themeManager) {
+      this._themeManager.dispose();
     }
 
     this._state = 'destroyed';

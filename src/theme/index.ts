@@ -4,6 +4,11 @@
  */
 
 export { ThemeManager } from './manager';
+export type { BridgeInvokeFn } from './manager';
+export { CssInjector } from './css-injector';
+export type { CssInjectorOptions } from './css-injector';
+export { DevCssLoader } from './dev-css-loader';
+export type { DevCssLoaderOptions } from './dev-css-loader';
 export type {
   ThemeType,
   CSSVariables,

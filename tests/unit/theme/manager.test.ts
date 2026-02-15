@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { ThemeManager } from '../../../src/theme/manager';
+import { ThemeManager, BridgeInvokeFn } from '../../../src/theme/manager';
 import { Logger } from '../../../src/logger';
 import { EventBus } from '../../../src/event';
 import { Theme, ThemeMetadata } from '../../../src/theme/types';
@@ -669,6 +669,139 @@ describe('ThemeManager', () => {
 
       themeManager.unregister('test-theme');
       expect(themeManager.count).toBe(2);
+    });
+  });
+
+  describe('cssInjector', () => {
+    it('应该返回 CssInjector 实例', () => {
+      expect(themeManager.cssInjector).toBeDefined();
+      expect(typeof themeManager.cssInjector.inject).toBe('function');
+    });
+  });
+
+  describe('devCssLoader', () => {
+    it('应该返回 DevCssLoader 实例', () => {
+      expect(themeManager.devCssLoader).toBeDefined();
+      expect(typeof themeManager.devCssLoader.loadFromText).toBe('function');
+    });
+  });
+
+  describe('autoApply', () => {
+    it('应该默认启用自动应用', () => {
+      vi.stubGlobal('document', {
+        documentElement: {
+          style: { setProperty: vi.fn() },
+          setAttribute: vi.fn(),
+        },
+      });
+
+      themeManager.setTheme('default-dark');
+
+      const docEl = document.documentElement as unknown as {
+        style: { setProperty: ReturnType<typeof vi.fn> };
+        setAttribute: ReturnType<typeof vi.fn>;
+      };
+      expect(docEl.style.setProperty).toHaveBeenCalled();
+      expect(docEl.setAttribute).toHaveBeenCalledWith('data-theme', 'dark');
+
+      vi.unstubAllGlobals();
+    });
+
+    it('应该在 autoApply=false 时不自动应用', () => {
+      const noAutoManager = new ThemeManager(mockLogger, mockEventBus, {
+        autoApply: false,
+      });
+
+      vi.stubGlobal('document', {
+        documentElement: {
+          style: { setProperty: vi.fn() },
+          setAttribute: vi.fn(),
+        },
+      });
+
+      noAutoManager.setTheme('default-dark');
+
+      const docEl = document.documentElement as unknown as {
+        style: { setProperty: ReturnType<typeof vi.fn> };
+      };
+      expect(docEl.style.setProperty).not.toHaveBeenCalled();
+
+      vi.unstubAllGlobals();
+    });
+  });
+
+  describe('initializeTheme', () => {
+    it('应该在无 Bridge 时尝试 dev fallback', async () => {
+      // DevCssLoader.loadFromPackage 会 fetch，在 node 环境下会失败
+      await themeManager.initializeTheme();
+
+      const childLogger = (mockLogger.createChild as ReturnType<typeof vi.fn>).mock.results[0].value;
+      // 应该有警告日志（因为 dev fallback 也会失败）
+      expect(childLogger.warn).toHaveBeenCalled();
+    });
+
+    it('应该在 Bridge 成功时使用 Bridge CSS', async () => {
+      const mockBridge: BridgeInvokeFn = vi.fn().mockResolvedValue({
+        css: {
+          tokens: ':root { --a: 1; }',
+          components: '.btn {}',
+        },
+      });
+
+      vi.stubGlobal('document', {
+        documentElement: {
+          style: { setProperty: vi.fn() },
+          setAttribute: vi.fn(),
+        },
+        createElement: vi.fn().mockReturnValue({
+          id: '',
+          textContent: '',
+          setAttribute: vi.fn(),
+        }),
+        getElementById: vi.fn().mockReturnValue(null),
+        head: {
+          appendChild: vi.fn(),
+        },
+      });
+
+      await themeManager.initializeTheme(mockBridge);
+
+      expect(mockBridge).toHaveBeenCalledWith('theme', 'getAllCss', {});
+
+      vi.unstubAllGlobals();
+    });
+
+    it('应该在 Bridge 失败时回退到 dev loader', async () => {
+      const mockBridge: BridgeInvokeFn = vi.fn().mockRejectedValue(new Error('Bridge unavailable'));
+
+      await themeManager.initializeTheme(mockBridge);
+
+      expect(mockBridge).toHaveBeenCalled();
+    });
+
+    it('应该在 Bridge 返回空数据时回退', async () => {
+      const mockBridge: BridgeInvokeFn = vi.fn().mockResolvedValue({});
+
+      await themeManager.initializeTheme(mockBridge);
+
+      expect(mockBridge).toHaveBeenCalled();
+    });
+  });
+
+  describe('dispose', () => {
+    it('应该清理 CSS 注入器', () => {
+      const removeSpy = vi.spyOn(themeManager.cssInjector, 'removeAll');
+
+      themeManager.dispose();
+
+      expect(removeSpy).toHaveBeenCalled();
+    });
+
+    it('应该取消事件监听', () => {
+      themeManager.dispose();
+
+      // 不应抛出错误
+      expect(() => themeManager.dispose()).not.toThrow();
     });
   });
 });

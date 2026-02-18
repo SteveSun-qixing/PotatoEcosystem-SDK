@@ -446,6 +446,15 @@ export class ChipsSDK {
     this._eventBus.off(event, handlerId);
   }
 
+  /**
+   * 发布事件
+   * @param event - 事件类型
+   * @param data - 事件数据
+   */
+  async emit<T = unknown>(event: string, data: T): Promise<void> {
+    return this._eventBus.emit(event, data);
+  }
+
   // ========== 私有方法 ==========
 
   /**

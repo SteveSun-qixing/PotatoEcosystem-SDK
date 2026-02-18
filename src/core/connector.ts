@@ -41,6 +41,13 @@ interface PendingRequest {
  */
 type EventHandler = (data: unknown) => void;
 
+interface ChipsBridgeApi {
+  invoke: (namespace: string, action: string, params?: unknown) => Promise<unknown>;
+  on?: (event: string, handler: (payload: unknown) => void) => (() => void) | void;
+  once?: (event: string, handler: (payload: unknown) => void) => (() => void) | void;
+  emit?: (event: string, data?: unknown) => void;
+}
+
 /**
  * Core 连接器
  * 负责与 Chips-Core 的 IPC 通信
@@ -68,6 +75,7 @@ export class CoreConnector {
   private _heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private _reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private _clientId: string;
+  private _bridgeUnsubscribers = new Map<string, Map<EventHandler, () => void>>();
 
   /**
    * 创建连接器实例
@@ -93,31 +101,38 @@ export class CoreConnector {
 
     this._connecting = true;
 
-    // 检查是否在 Electron 环境中
-    const isElectron = typeof window !== 'undefined' && (window as any).electron;
+    const bridge = this._getChipsBridge();
+    if (bridge) {
+      this._connected = true;
+      this._connecting = false;
+      this._reconnectAttempts = 0;
+      return;
+    }
 
-    if (isElectron) {
-      // Electron 环境：通过 IPC 桥接器连接
+    const electronIpcInvoke = this._getElectronIpcInvoke();
+    if (electronIpcInvoke) {
+      // 旧版 Electron 环境：通过 IPC 桥接器连接
       try {
-        const connected = await (window as any).electron.ipcRenderer.invoke('core:is-connected');
-        if (connected) {
-          this._connected = true;
-          this._connecting = false;
-          this._reconnectAttempts = 0;
-          this._startHeartbeat();
-        } else {
+        const connected = await electronIpcInvoke('core:is-connected');
+        if (connected !== true) {
           this._connecting = false;
           throw new ConnectionError('IPC bridge not connected to Core');
         }
+        this._connected = true;
+        this._connecting = false;
+        this._reconnectAttempts = 0;
+        this._startHeartbeat();
+        return;
       } catch (error) {
         this._connecting = false;
         throw new ConnectionError('Failed to connect via IPC bridge', {
           error: String(error),
         });
       }
-    } else {
-      // Web 环境：使用 WebSocket
-      return new Promise((resolve, reject) => {
+    }
+
+    // Web 环境：使用 WebSocket
+    return new Promise((resolve, reject) => {
         try {
           // 检查 WebSocket 是否可用
           if (typeof WebSocket === 'undefined') {
@@ -160,7 +175,6 @@ export class CoreConnector {
           );
         }
       });
-    }
   }
 
   /**
@@ -169,6 +183,7 @@ export class CoreConnector {
   disconnect(): void {
     this._stopHeartbeat();
     this._stopReconnect();
+    this._clearBridgeSubscriptions();
 
     if (this._socket) {
       this._socket.onclose = null; // 防止触发重连
@@ -199,6 +214,22 @@ export class CoreConnector {
       throw new ConnectionError('Not connected to Core');
     }
 
+    const bridge = this._getChipsBridge();
+    if (bridge) {
+      try {
+        const data = await bridge.invoke(params.service, params.method, params.payload);
+        return {
+          success: true,
+          data: data as T,
+        };
+      } catch (error) {
+        return {
+          success: false,
+          error: this._stringifyBridgeError(error),
+        };
+      }
+    }
+
     const id = generateUuid();
     const timeout = params.timeout ?? this._options.timeout;
 
@@ -214,13 +245,15 @@ export class CoreConnector {
       timestamp: new Date().toISOString(),
     };
 
-    // 检查是否在 Electron 环境中
-    const isElectron = typeof window !== 'undefined' && (window as any).electron;
-
-    if (isElectron) {
-      // Electron 环境：通过 IPC 发送请求
+    const electronIpcInvoke = this._getElectronIpcInvoke();
+    if (electronIpcInvoke) {
+      // 旧版 Electron 环境：通过 IPC 发送请求
       try {
-        const response = await (window as any).electron.ipcRenderer.invoke('core:request', request);
+        const response = (await electronIpcInvoke('core:request', request)) as {
+          success: boolean;
+          data?: unknown;
+          error?: string;
+        };
         return {
           success: response.success,
           data: response.data as T,
@@ -231,42 +264,42 @@ export class CoreConnector {
           error: String(error),
         });
       }
-    } else {
-      // Web 环境：使用 WebSocket
-      if (!this._socket) {
-        throw new ConnectionError('WebSocket not initialized');
-      }
-
-      return new Promise((resolve, reject) => {
-        const timeoutHandle = setTimeout(() => {
-          this._pendingRequests.delete(id);
-          reject(
-            new TimeoutError(`Request timed out after ${timeout}ms`, {
-              service: params.service,
-              method: params.method,
-            })
-          );
-        }, timeout);
-
-        this._pendingRequests.set(id, {
-          resolve: resolve as (value: ResponseData) => void,
-          reject,
-          timeout: timeoutHandle,
-        });
-
-        try {
-          this._socket!.send(JSON.stringify(request) + '\n');
-        } catch (error) {
-          this._pendingRequests.delete(id);
-          clearTimeout(timeoutHandle);
-          reject(
-            new ConnectionError('Failed to send request', {
-              error: String(error),
-            })
-          );
-        }
-      });
     }
+
+    // Web 环境：使用 WebSocket
+    if (!this._socket) {
+      throw new ConnectionError('WebSocket not initialized');
+    }
+
+    return new Promise((resolve, reject) => {
+      const timeoutHandle = setTimeout(() => {
+        this._pendingRequests.delete(id);
+        reject(
+          new TimeoutError(`Request timed out after ${timeout}ms`, {
+            service: params.service,
+            method: params.method,
+          })
+        );
+      }, timeout);
+
+      this._pendingRequests.set(id, {
+        resolve: resolve as (value: ResponseData) => void,
+        reject,
+        timeout: timeoutHandle,
+      });
+
+      try {
+        this._socket!.send(JSON.stringify(request) + '\n');
+      } catch (error) {
+        this._pendingRequests.delete(id);
+        clearTimeout(timeoutHandle);
+        reject(
+          new ConnectionError('Failed to send request', {
+            error: String(error),
+          })
+        );
+      }
+    });
   }
 
   /**
@@ -275,7 +308,20 @@ export class CoreConnector {
    * @param data - 事件数据
    */
   publish(eventType: string, data: Record<string, unknown>): void {
-    if (!this._connected || !this._socket) {
+    if (!this._connected) {
+      throw new ConnectionError('Not connected to Core');
+    }
+
+    const bridge = this._getChipsBridge();
+    if (bridge) {
+      if (!bridge.emit) {
+        throw new ConnectionError('Bridge emit API is not available');
+      }
+      bridge.emit(eventType, data);
+      return;
+    }
+
+    if (!this._socket) {
       throw new ConnectionError('Not connected to Core');
     }
 
@@ -299,6 +345,16 @@ export class CoreConnector {
    * @param handler - 事件处理器
    */
   on(eventType: string, handler: EventHandler): void {
+    const bridge = this._getChipsBridge();
+    if (this._connected && bridge) {
+      if (!bridge.on) {
+        throw new ConnectionError('Bridge on API is not available');
+      }
+      const unsubscribe = bridge.on(eventType, handler as (payload: unknown) => void);
+      this._storeBridgeUnsubscriber(eventType, handler, unsubscribe);
+      return;
+    }
+
     if (!this._eventHandlers.has(eventType)) {
       this._eventHandlers.set(eventType, new Set());
     }
@@ -325,6 +381,12 @@ export class CoreConnector {
    * @param handler - 事件处理器（可选，不传则取消该类型所有订阅）
    */
   off(eventType: string, handler?: EventHandler): void {
+    const bridge = this._getChipsBridge();
+    if (this._connected && bridge) {
+      this._removeBridgeSubscription(eventType, handler);
+      return;
+    }
+
     if (!handler) {
       this._eventHandlers.delete(eventType);
     } else {
@@ -352,6 +414,13 @@ export class CoreConnector {
    * @param handler - 事件处理器
    */
   once(eventType: string, handler: EventHandler): void {
+    const bridge = this._getChipsBridge();
+    if (this._connected && bridge?.once) {
+      const unsubscribe = bridge.once(eventType, handler as (payload: unknown) => void);
+      this._storeBridgeUnsubscriber(eventType, handler, unsubscribe);
+      return;
+    }
+
     const wrappedHandler: EventHandler = (data) => {
       this.off(eventType, wrappedHandler);
       handler(data);
@@ -385,6 +454,115 @@ export class CoreConnector {
    */
   get pendingCount(): number {
     return this._pendingRequests.size;
+  }
+
+  private _getChipsBridge(): ChipsBridgeApi | undefined {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const chipsBridge = (window as { chips?: unknown }).chips;
+    if (
+      chipsBridge &&
+      typeof chipsBridge === 'object' &&
+      typeof (chipsBridge as ChipsBridgeApi).invoke === 'function'
+    ) {
+      return chipsBridge as ChipsBridgeApi;
+    }
+
+    return undefined;
+  }
+
+  private _getElectronIpcInvoke():
+    | ((channel: string, ...args: unknown[]) => Promise<unknown>)
+    | undefined {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    const electronBridge = (window as { electron?: unknown }).electron;
+    if (
+      electronBridge &&
+      typeof electronBridge === 'object' &&
+      'ipcRenderer' in electronBridge
+    ) {
+      const ipcRenderer = (electronBridge as { ipcRenderer?: { invoke?: unknown } }).ipcRenderer;
+      if (ipcRenderer && typeof ipcRenderer.invoke === 'function') {
+        return ipcRenderer.invoke as (channel: string, ...args: unknown[]) => Promise<unknown>;
+      }
+    }
+
+    return undefined;
+  }
+
+  private _stringifyBridgeError(error: unknown): string {
+    if (typeof error === 'string') {
+      return error;
+    }
+
+    if (error instanceof Error) {
+      return error.message;
+    }
+
+    if (typeof error === 'object' && error !== null && 'message' in error) {
+      const message = (error as { message?: unknown }).message;
+      if (typeof message === 'string') {
+        return message;
+      }
+    }
+
+    return String(error);
+  }
+
+  private _storeBridgeUnsubscriber(
+    eventType: string,
+    handler: EventHandler,
+    unsubscribe: (() => void) | void
+  ): void {
+    if (typeof unsubscribe !== 'function') {
+      return;
+    }
+
+    const eventMap = this._bridgeUnsubscribers.get(eventType) ?? new Map<EventHandler, () => void>();
+    eventMap.set(handler, unsubscribe);
+    this._bridgeUnsubscribers.set(eventType, eventMap);
+  }
+
+  private _removeBridgeSubscription(eventType: string, handler?: EventHandler): void {
+    if (!handler) {
+      const eventMap = this._bridgeUnsubscribers.get(eventType);
+      if (!eventMap) {
+        return;
+      }
+      for (const unsubscribe of eventMap.values()) {
+        unsubscribe();
+      }
+      this._bridgeUnsubscribers.delete(eventType);
+      return;
+    }
+
+    const eventMap = this._bridgeUnsubscribers.get(eventType);
+    if (!eventMap) {
+      return;
+    }
+
+    const unsubscribe = eventMap.get(handler);
+    if (unsubscribe) {
+      unsubscribe();
+    }
+    eventMap.delete(handler);
+    if (eventMap.size === 0) {
+      this._bridgeUnsubscribers.delete(eventType);
+    }
+  }
+
+  private _clearBridgeSubscriptions(): void {
+    for (const eventMap of this._bridgeUnsubscribers.values()) {
+      for (const unsubscribe of eventMap.values()) {
+        unsubscribe();
+      }
+    }
+    this._bridgeUnsubscribers.clear();
   }
 
   /**

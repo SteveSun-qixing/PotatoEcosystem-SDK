@@ -52,6 +52,9 @@ describe('CoreConnector', () => {
 
   afterEach(() => {
     connector.disconnect();
+    if (typeof window !== 'undefined') {
+      delete (window as unknown as { chips?: unknown }).chips;
+    }
     vi.unstubAllGlobals();
   });
 
@@ -101,6 +104,16 @@ describe('CoreConnector', () => {
       connector.connect(); // 不等待
 
       await expect(connector.connect()).rejects.toThrow('Connection already in progress');
+    });
+
+    it('应该优先使用 chips Bridge 连接', async () => {
+      const invoke = vi.fn().mockResolvedValue({});
+      const on = vi.fn(() => vi.fn());
+      vi.stubGlobal('window', { chips: { invoke, on } });
+
+      await expect(connector.connect()).resolves.toBeUndefined();
+      expect(connector.isConnected).toBe(true);
+      expect(WebSocket).not.toHaveBeenCalled();
     });
   });
 
@@ -370,6 +383,43 @@ describe('CoreConnector', () => {
       expect(() => {
         connector.publish('test:event', {});
       }).toThrow(ConnectionError);
+    });
+  });
+
+  describe('chips Bridge 请求', () => {
+    beforeEach(async () => {
+      const invoke = vi.fn().mockResolvedValue({ ok: true });
+      const on = vi.fn(() => vi.fn());
+      const emit = vi.fn();
+      vi.stubGlobal('window', { chips: { invoke, on, emit } });
+      await connector.connect();
+    });
+
+    it('应该通过 chips.invoke 发送请求', async () => {
+      const chips = ((globalThis as { window?: unknown }).window as { chips: { invoke: ReturnType<typeof vi.fn> } }).chips;
+      const response = await connector.request({
+        service: 'file',
+        method: 'read',
+        payload: { path: '/tmp/demo.txt' },
+      });
+
+      expect(chips.invoke).toHaveBeenCalledWith('file', 'read', { path: '/tmp/demo.txt' });
+      expect(response.success).toBe(true);
+      expect(response.data).toEqual({ ok: true });
+    });
+
+    it('应该在 chips.invoke 抛错时返回失败响应', async () => {
+      const chips = ((globalThis as { window?: unknown }).window as { chips: { invoke: ReturnType<typeof vi.fn> } }).chips;
+      chips.invoke.mockRejectedValueOnce(new Error('permission denied'));
+
+      const response = await connector.request({
+        service: 'file',
+        method: 'write',
+        payload: { path: '/tmp/demo.txt', content: 'x' },
+      });
+
+      expect(response.success).toBe(false);
+      expect(response.error).toContain('permission denied');
     });
   });
 

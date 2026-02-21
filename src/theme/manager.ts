@@ -10,6 +10,10 @@ import {
   ThemeMetadata,
   ThemeManagerOptions,
   CSSVariables,
+  ThemeHierarchyChain,
+  DEFAULT_THEME_ID,
+  DEFAULT_DARK_THEME_ID,
+  LEGACY_THEME_ID_MAP,
 } from './types';
 import { CssInjector } from './css-injector';
 import { DevCssLoader } from './dev-css-loader';
@@ -19,7 +23,8 @@ import { DevCssLoader } from './dev-css-loader';
  */
 const DEFAULT_LIGHT_THEME: Theme = {
   metadata: {
-    id: 'default-light',
+    id: DEFAULT_THEME_ID,
+    themeId: DEFAULT_THEME_ID,
     name: 'Default Light',
     type: 'light',
     version: '1.0.0',
@@ -104,12 +109,13 @@ const DEFAULT_LIGHT_THEME: Theme = {
  */
 const DEFAULT_DARK_THEME: Theme = {
   metadata: {
-    id: 'default-dark',
+    id: DEFAULT_DARK_THEME_ID,
+    themeId: DEFAULT_DARK_THEME_ID,
     name: 'Default Dark',
     type: 'dark',
     version: '1.0.0',
     description: 'Default dark theme for Chips SDK',
-    extends: 'default-light',
+    extends: DEFAULT_THEME_ID,
   },
   colors: {
     primary: '#60a5fa',
@@ -146,7 +152,7 @@ const DEFAULT_DARK_THEME: Theme = {
  * const themeManager = new ThemeManager(logger, eventBus);
  *
  * // 设置主题
- * themeManager.setTheme('default-dark');
+ * themeManager.setTheme('chips-official.dark-theme');
  *
  * // 获取 CSS 变量
  * const vars = themeManager.getCSSVariables();
@@ -155,6 +161,8 @@ const DEFAULT_DARK_THEME: Theme = {
 export class ThemeManager {
   private _themes = new Map<string, Theme>();
   private _currentThemeId: string;
+  private _bridgeVariables: CSSVariables = {};
+  private _bridgeVariablesEnabled = false;
   private _logger: Logger;
   private _eventBus: EventBus;
   private _cssInjector: CssInjector;
@@ -178,8 +186,8 @@ export class ThemeManager {
     this._devCssLoader = new DevCssLoader(this._logger, this._cssInjector, options?.devCssLoader);
 
     // 注册默认主题
-    this._themes.set('default-light', DEFAULT_LIGHT_THEME);
-    this._themes.set('default-dark', DEFAULT_DARK_THEME);
+    this._themes.set(DEFAULT_THEME_ID, DEFAULT_LIGHT_THEME);
+    this._themes.set(DEFAULT_DARK_THEME_ID, DEFAULT_DARK_THEME);
 
     // 注册自定义主题
     if (options?.themes) {
@@ -189,7 +197,10 @@ export class ThemeManager {
     }
 
     // 设置默认主题
-    this._currentThemeId = options?.defaultTheme || 'default-light';
+    this._currentThemeId = this._normalizeThemeId(options?.defaultTheme) ?? DEFAULT_THEME_ID;
+    if (!this._themes.has(this._currentThemeId)) {
+      this._currentThemeId = DEFAULT_THEME_ID;
+    }
   }
 
   /**
@@ -197,18 +208,24 @@ export class ThemeManager {
    * @param theme - 主题定义
    */
   register(theme: Theme): void {
+    const normalizedTheme = this._normalizeTheme(theme);
+    const themeId = normalizedTheme.metadata.id;
+
     // 如果有继承，合并主题
-    if (theme.metadata.extends) {
-      const parentTheme = this._themes.get(theme.metadata.extends);
+    if (normalizedTheme.metadata.extends) {
+      const parentTheme = this._themes.get(normalizedTheme.metadata.extends);
       if (parentTheme) {
-        theme = this._mergeThemes(parentTheme, theme);
+        this._themes.set(themeId, this._mergeThemes(parentTheme, normalizedTheme));
+      } else {
+        this._themes.set(themeId, normalizedTheme);
       }
+    } else {
+      this._themes.set(themeId, normalizedTheme);
     }
 
-    this._themes.set(theme.metadata.id, theme);
-    this._logger.info('Theme registered', { id: theme.metadata.id });
+    this._logger.info('Theme registered', { id: themeId });
 
-    this._eventBus.emitSync('theme:registered', { id: theme.metadata.id });
+    this._eventBus.emitSync('theme:registered', { id: themeId });
   }
 
   /**
@@ -216,13 +233,14 @@ export class ThemeManager {
    * @param id - 主题 ID
    */
   unregister(id: string): void {
-    if (id === 'default-light' || id === 'default-dark') {
+    const themeId = this._normalizeThemeId(id) ?? id;
+    if (themeId === DEFAULT_THEME_ID || themeId === DEFAULT_DARK_THEME_ID) {
       this._logger.warn('Cannot unregister default themes');
       return;
     }
 
-    this._themes.delete(id);
-    this._logger.info('Theme unregistered', { id });
+    this._themes.delete(themeId);
+    this._logger.info('Theme unregistered', { id: themeId });
   }
 
   /**
@@ -230,15 +248,18 @@ export class ThemeManager {
    * @param id - 主题 ID
    */
   setTheme(id: string): void {
-    if (!this._themes.has(id)) {
+    const themeId = this._normalizeThemeId(id) ?? id;
+    if (!this._themes.has(themeId)) {
       this._logger.warn('Theme not found', { id });
       return;
     }
 
     const previousTheme = this._currentThemeId;
-    this._currentThemeId = id;
+    this._currentThemeId = themeId;
+    this._bridgeVariablesEnabled = false;
+    this._bridgeVariables = {};
 
-    this._logger.info('Theme changed', { from: previousTheme, to: id });
+    this._logger.info('Theme changed', { from: previousTheme, to: themeId });
 
     // 自动应用 CSS 变量到 DOM
     if (this._autoApplyEnabled) {
@@ -247,7 +268,7 @@ export class ThemeManager {
 
     this._eventBus.emitSync('theme:changed', {
       previousTheme,
-      currentTheme: id,
+      currentTheme: themeId,
     });
   }
 
@@ -255,7 +276,7 @@ export class ThemeManager {
    * 获取当前主题
    */
   getTheme(): Theme {
-    return this._themes.get(this._currentThemeId) || DEFAULT_LIGHT_THEME;
+    return this._themes.get(this._currentThemeId) || this._themes.get(DEFAULT_THEME_ID) || DEFAULT_LIGHT_THEME;
   }
 
   /**
@@ -270,14 +291,19 @@ export class ThemeManager {
    * @param id - 主题 ID
    */
   getThemeById(id: string): Theme | undefined {
-    return this._themes.get(id);
+    const themeId = this._normalizeThemeId(id) ?? id;
+    return this._themes.get(themeId);
   }
 
   /**
    * 获取所有主题
    */
   listThemes(): ThemeMetadata[] {
-    return Array.from(this._themes.values()).map((t) => t.metadata);
+    return Array.from(this._themes.values()).map((t) => ({
+      ...t.metadata,
+      id: t.metadata.id,
+      themeId: t.metadata.themeId ?? t.metadata.id,
+    }));
   }
 
   /**
@@ -285,7 +311,25 @@ export class ThemeManager {
    * @param id - 主题 ID
    */
   hasTheme(id: string): boolean {
-    return this._themes.has(id);
+    const themeId = this._normalizeThemeId(id) ?? id;
+    return this._themes.has(themeId);
+  }
+
+  resolveThemeHierarchy(chain: ThemeHierarchyChain): string | null {
+    const resolved = (
+      chain.component ??
+      chain.baseCard ??
+      chain.compositeCard ??
+      chain.card ??
+      chain.box ??
+      chain.app ??
+      chain.global ??
+      null
+    );
+    if (!resolved) {
+      return null;
+    }
+    return this._normalizeThemeId(resolved) ?? resolved;
   }
 
   /**
@@ -299,6 +343,10 @@ export class ThemeManager {
    * 获取 CSS 变量
    */
   getCSSVariables(): CSSVariables {
+    if (this._bridgeVariablesEnabled && Object.keys(this._bridgeVariables).length > 0) {
+      return { ...this._bridgeVariables };
+    }
+
     const theme = this.getTheme();
     const vars: CSSVariables = {};
 
@@ -364,7 +412,8 @@ export class ThemeManager {
 
     // 设置主题类型属性
     const theme = this.getTheme();
-    root.setAttribute('data-theme', theme.metadata.type);
+    root.setAttribute('data-theme', this._currentThemeId);
+    root.setAttribute('data-theme-mode', theme.metadata.type);
 
     this._logger.debug('Theme applied to DOM');
   }
@@ -384,7 +433,7 @@ export class ThemeManager {
    */
   applySystemTheme(): void {
     const preference = this.detectSystemTheme();
-    const themeId = preference === 'dark' ? 'default-dark' : 'default-light';
+    const themeId = preference === 'dark' ? DEFAULT_DARK_THEME_ID : DEFAULT_THEME_ID;
     this.setTheme(themeId);
   }
 
@@ -399,8 +448,10 @@ export class ThemeManager {
 
     // 2. 尝试通过 Bridge 加载主题 CSS
     if (bridgeInvoke) {
+      await this._syncCurrentThemeFromBridge(bridgeInvoke);
       const loaded = await this._loadCssViaBridge(bridgeInvoke);
       if (loaded) {
+        this._safeApplyToDOM();
         this._logger.info('Theme CSS loaded via Bridge');
         return;
       }
@@ -447,8 +498,13 @@ export class ThemeManager {
    * 合并主题
    */
   private _mergeThemes(parent: Theme, child: Theme): Theme {
+    const childThemeId = child.metadata.id;
     return {
-      metadata: child.metadata,
+      metadata: {
+        ...child.metadata,
+        id: childThemeId,
+        themeId: childThemeId,
+      },
       colors: { ...parent.colors, ...child.colors },
       spacing: { ...parent.spacing, ...child.spacing },
       radius: { ...parent.radius, ...child.radius },
@@ -493,6 +549,9 @@ export class ThemeManager {
     try {
       const result = await invoke('theme', 'getAllCss', {}) as { css: Record<string, string> } | undefined;
       if (result?.css && typeof result.css === 'object') {
+        const parsedTokens = typeof result.css.tokens === 'string' ? this._parseCssVariables(result.css.tokens) : {};
+        this._bridgeVariables = parsedTokens;
+        this._bridgeVariablesEnabled = Object.keys(parsedTokens).length > 0;
         this._cssInjector.injectAll(result.css);
         return true;
       }
@@ -501,6 +560,85 @@ export class ThemeManager {
       this._logger.debug('Bridge CSS loading failed', { error: String(error) });
       return false;
     }
+  }
+
+  private async _syncCurrentThemeFromBridge(invoke: BridgeInvokeFn): Promise<void> {
+    try {
+      const result = await invoke('theme', 'getCurrent', {}) as { themeId?: string; id?: string } | undefined;
+      const rawThemeId =
+        (typeof result?.themeId === 'string' && result.themeId) ||
+        (typeof result?.id === 'string' && result.id) ||
+        null;
+
+      if (!rawThemeId) {
+        return;
+      }
+
+      const themeId = this._normalizeThemeId(rawThemeId) ?? rawThemeId;
+      if (!this._themes.has(themeId)) {
+        this._themes.set(themeId, this._createRuntimeTheme(themeId));
+      }
+
+      this._currentThemeId = themeId;
+    } catch (error) {
+      this._logger.debug('Bridge current theme sync failed', { error: String(error) });
+    }
+  }
+
+  private _createRuntimeTheme(themeId: string): Theme {
+    const baseTheme = this._themes.get(DEFAULT_THEME_ID) || DEFAULT_LIGHT_THEME;
+    const mode = themeId.toLowerCase().includes('dark') ? 'dark' : baseTheme.metadata.type;
+
+    return {
+      ...baseTheme,
+      metadata: {
+        ...baseTheme.metadata,
+        id: themeId,
+        themeId,
+        name: themeId,
+        type: mode,
+        extends: undefined,
+      },
+    };
+  }
+
+  private _normalizeThemeId(themeId?: string): string | undefined {
+    if (!themeId) {
+      return undefined;
+    }
+    return LEGACY_THEME_ID_MAP[themeId] ?? themeId;
+  }
+
+  private _normalizeTheme(theme: Theme): Theme {
+    const normalizedId = this._normalizeThemeId(theme.metadata.themeId ?? theme.metadata.id);
+    if (!normalizedId) {
+      throw new Error('theme metadata.id is required');
+    }
+
+    const normalizedExtends = this._normalizeThemeId(theme.metadata.extends);
+
+    return {
+      ...theme,
+      metadata: {
+        ...theme.metadata,
+        id: normalizedId,
+        themeId: normalizedId,
+        extends: normalizedExtends,
+      },
+    };
+  }
+
+  private _parseCssVariables(content: string): CSSVariables {
+    const variables: CSSVariables = {};
+    const regex = /(--[a-zA-Z0-9-_]+)\s*:\s*([^;]+);/g;
+
+    let match: RegExpExecArray | null = regex.exec(content);
+    while (match) {
+      variables[match[1]] = match[2].trim();
+      match = regex.exec(content);
+    }
+
+    return variables;
   }
 }
 

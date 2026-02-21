@@ -8,6 +8,14 @@
  */
 export type ThemeType = 'light' | 'dark' | 'auto';
 
+export const DEFAULT_THEME_ID = 'chips-official.default-theme';
+export const DEFAULT_DARK_THEME_ID = 'chips-official.dark-theme';
+
+export const LEGACY_THEME_ID_MAP: Record<string, string> = {
+  'default-light': DEFAULT_THEME_ID,
+  'default-dark': DEFAULT_DARK_THEME_ID,
+};
+
 /**
  * CSS 变量定义
  */
@@ -17,8 +25,10 @@ export type CSSVariables = Record<string, string>;
  * 主题元数据
  */
 export interface ThemeMetadata {
-  /** 主题 ID */
+  /** 主题 ID（系统技术主键） */
   id: string;
+  /** 主题 ID（优先字段，等同于 id） */
+  themeId?: string;
   /** 主题名称 */
   name: string;
   /** 主题类型 */
@@ -33,6 +43,16 @@ export interface ThemeMetadata {
   preview?: string;
   /** 父主题 */
   extends?: string;
+}
+
+export interface ThemeHierarchyChain {
+  component?: string;
+  baseCard?: string;
+  compositeCard?: string;
+  card?: string;
+  box?: string;
+  app?: string;
+  global?: string;
 }
 
 /**

@@ -16,6 +16,7 @@ import { RenderError, ErrorCodes } from '../core';
 import { Logger } from '../logger';
 import { EventBus } from '../event';
 import { ThemeManager } from '../theme';
+import { DEFAULT_THEME_ID } from '../theme/types';
 import { Card } from '../types/card';
 import { Box } from '../types/box';
 import { CardParser } from './card-parser';
@@ -38,7 +39,7 @@ import type {
  * 默认选项
  */
 const DEFAULT_OPTIONS: Required<RendererEngineOptions> = {
-  defaultTheme: 'default-light',
+  defaultTheme: DEFAULT_THEME_ID,
   enableCache: true,
   cacheSize: 50,
   defaultMode: 'full',

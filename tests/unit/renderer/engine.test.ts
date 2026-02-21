@@ -3,6 +3,7 @@ import { RendererEngine } from '../../../src/renderer/engine';
 import { Logger } from '../../../src/logger';
 import { EventBus } from '../../../src/event';
 import { ThemeManager } from '../../../src/theme';
+import { DEFAULT_THEME_ID } from '../../../src/theme/types';
 import { Card } from '../../../src/types/card';
 import { Box } from '../../../src/types/box';
 import { CardRenderer, BoxRenderer, RenderResult } from '../../../src/renderer/types';
@@ -54,9 +55,9 @@ function createMockThemeManager() {
       '--chips-font-size-lg': '1.125rem',
     }),
     getTheme: vi.fn().mockReturnValue({
-      metadata: { id: 'default-light', type: 'light' },
+      metadata: { id: DEFAULT_THEME_ID, type: 'light' },
     }),
-    currentThemeId: 'default-light',
+    currentThemeId: DEFAULT_THEME_ID,
   } as unknown as ThemeManager;
 }
 

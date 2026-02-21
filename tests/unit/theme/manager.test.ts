@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { ThemeManager, BridgeInvokeFn } from '../../../src/theme/manager';
 import { Logger } from '../../../src/logger';
 import { EventBus } from '../../../src/event';
-import { Theme, ThemeMetadata } from '../../../src/theme/types';
+import { Theme, DEFAULT_THEME_ID, DEFAULT_DARK_THEME_ID } from '../../../src/theme/types';
 
 // 创建 Mock 对象
 function createMockLogger() {
@@ -135,20 +135,20 @@ describe('ThemeManager', () => {
   describe('constructor', () => {
     it('应该创建实例并注册默认主题', () => {
       expect(themeManager).toBeInstanceOf(ThemeManager);
-      expect(themeManager.hasTheme('default-light')).toBe(true);
-      expect(themeManager.hasTheme('default-dark')).toBe(true);
+      expect(themeManager.hasTheme(DEFAULT_THEME_ID)).toBe(true);
+      expect(themeManager.hasTheme(DEFAULT_DARK_THEME_ID)).toBe(true);
     });
 
     it('应该使用默认亮色主题', () => {
-      expect(themeManager.currentThemeId).toBe('default-light');
+      expect(themeManager.currentThemeId).toBe(DEFAULT_THEME_ID);
     });
 
     it('应该支持自定义默认主题', () => {
       const customManager = new ThemeManager(mockLogger, mockEventBus, {
-        defaultTheme: 'default-dark',
+        defaultTheme: DEFAULT_DARK_THEME_ID,
       });
 
-      expect(customManager.currentThemeId).toBe('default-dark');
+      expect(customManager.currentThemeId).toBe(DEFAULT_DARK_THEME_ID);
     });
 
     it('应该在构造时注册自定义主题', () => {
@@ -207,7 +207,7 @@ describe('ThemeManager', () => {
   describe('主题继承', () => {
     it('应该从父主题继承属性', () => {
       // 创建只覆盖部分属性的子主题
-      const parentTheme = themeManager.getThemeById('default-light')!;
+      const parentTheme = themeManager.getThemeById(DEFAULT_THEME_ID)!;
 
       const childTheme: Theme = {
         metadata: {
@@ -215,7 +215,7 @@ describe('ThemeManager', () => {
           name: 'Child Theme',
           type: 'light',
           version: '1.0.0',
-          extends: 'default-light',
+          extends: DEFAULT_THEME_ID,
         },
         colors: {
           ...parentTheme.colors,
@@ -243,7 +243,7 @@ describe('ThemeManager', () => {
           name: 'Child Theme',
           type: 'light',
           version: '1.0.0',
-          extends: 'default-light',
+          extends: DEFAULT_THEME_ID,
         },
         colors: createTestTheme().colors,
         spacing: createTestTheme().spacing,
@@ -352,15 +352,15 @@ describe('ThemeManager', () => {
     });
 
     it('不应该取消注册默认主题', () => {
-      themeManager.unregister('default-light');
-      themeManager.unregister('default-dark');
+      themeManager.unregister(DEFAULT_THEME_ID);
+      themeManager.unregister(DEFAULT_DARK_THEME_ID);
 
-      expect(themeManager.hasTheme('default-light')).toBe(true);
-      expect(themeManager.hasTheme('default-dark')).toBe(true);
+      expect(themeManager.hasTheme(DEFAULT_THEME_ID)).toBe(true);
+      expect(themeManager.hasTheme(DEFAULT_DARK_THEME_ID)).toBe(true);
     });
 
     it('应该记录警告当尝试取消注册默认主题', () => {
-      themeManager.unregister('default-light');
+      themeManager.unregister(DEFAULT_THEME_ID);
 
       const childLogger = (mockLogger.createChild as ReturnType<typeof vi.fn>).mock.results[0]
         .value;
@@ -370,17 +370,17 @@ describe('ThemeManager', () => {
 
   describe('setTheme', () => {
     it('应该成功切换主题', () => {
-      themeManager.setTheme('default-dark');
+      themeManager.setTheme(DEFAULT_DARK_THEME_ID);
 
-      expect(themeManager.currentThemeId).toBe('default-dark');
+      expect(themeManager.currentThemeId).toBe(DEFAULT_DARK_THEME_ID);
     });
 
     it('应该触发 theme:changed 事件', () => {
-      themeManager.setTheme('default-dark');
+      themeManager.setTheme(DEFAULT_DARK_THEME_ID);
 
       expect(mockEventBus.emitSync).toHaveBeenCalledWith('theme:changed', {
-        previousTheme: 'default-light',
-        currentTheme: 'default-dark',
+        previousTheme: DEFAULT_THEME_ID,
+        currentTheme: DEFAULT_DARK_THEME_ID,
       });
     });
 
@@ -390,7 +390,7 @@ describe('ThemeManager', () => {
       const childLogger = (mockLogger.createChild as ReturnType<typeof vi.fn>).mock.results[0]
         .value;
       expect(childLogger.warn).toHaveBeenCalled();
-      expect(themeManager.currentThemeId).toBe('default-light');
+      expect(themeManager.currentThemeId).toBe(DEFAULT_THEME_ID);
     });
 
     it('应该切换到自定义注册的主题', () => {
@@ -401,6 +401,11 @@ describe('ThemeManager', () => {
 
       expect(themeManager.currentThemeId).toBe('test-theme');
     });
+
+    it('应该兼容 legacy 默认主题 ID', () => {
+      themeManager.setTheme('default-dark');
+      expect(themeManager.currentThemeId).toBe(DEFAULT_DARK_THEME_ID);
+    });
   });
 
   describe('getTheme', () => {
@@ -408,15 +413,15 @@ describe('ThemeManager', () => {
       const theme = themeManager.getTheme();
 
       expect(theme).toBeDefined();
-      expect(theme.metadata.id).toBe('default-light');
+      expect(theme.metadata.id).toBe(DEFAULT_THEME_ID);
     });
 
     it('应该返回切换后的主题', () => {
-      themeManager.setTheme('default-dark');
+      themeManager.setTheme(DEFAULT_DARK_THEME_ID);
 
       const theme = themeManager.getTheme();
 
-      expect(theme.metadata.id).toBe('default-dark');
+      expect(theme.metadata.id).toBe(DEFAULT_DARK_THEME_ID);
     });
 
     it('应该返回默认主题当当前主题被删除', () => {
@@ -427,13 +432,13 @@ describe('ThemeManager', () => {
 
       // 主题被删除后，getTheme 应返回 DEFAULT_LIGHT_THEME
       const currentTheme = themeManager.getTheme();
-      expect(currentTheme.metadata.id).toBe('default-light');
+      expect(currentTheme.metadata.id).toBe(DEFAULT_THEME_ID);
     });
   });
 
   describe('getThemeById', () => {
     it('应该返回指定的主题', () => {
-      const theme = themeManager.getThemeById('default-dark');
+      const theme = themeManager.getThemeById(DEFAULT_DARK_THEME_ID);
 
       expect(theme).toBeDefined();
       expect(theme?.metadata.type).toBe('dark');
@@ -451,8 +456,8 @@ describe('ThemeManager', () => {
       const themes = themeManager.listThemes();
 
       expect(themes).toHaveLength(2);
-      expect(themes.map((t) => t.id)).toContain('default-light');
-      expect(themes.map((t) => t.id)).toContain('default-dark');
+      expect(themes.map((t) => t.id)).toContain(DEFAULT_THEME_ID);
+      expect(themes.map((t) => t.id)).toContain(DEFAULT_DARK_THEME_ID);
     });
 
     it('应该包含新注册的主题', () => {
@@ -547,7 +552,7 @@ describe('ThemeManager', () => {
     });
 
     it('应该为暗色主题生成不同的变量', () => {
-      themeManager.setTheme('default-dark');
+      themeManager.setTheme(DEFAULT_DARK_THEME_ID);
 
       const vars = themeManager.getCSSVariables();
 
@@ -568,7 +573,7 @@ describe('ThemeManager', () => {
       themeManager.applyToDOM(mockElement);
 
       expect(mockElement.style.setProperty).toHaveBeenCalled();
-      expect(mockElement.setAttribute).toHaveBeenCalledWith('data-theme', 'light');
+      expect(mockElement.setAttribute).toHaveBeenCalledWith('data-theme', DEFAULT_THEME_ID);
     });
 
     it('应该设置正确的 data-theme 属性', () => {
@@ -579,10 +584,10 @@ describe('ThemeManager', () => {
         setAttribute: vi.fn(),
       } as unknown as HTMLElement;
 
-      themeManager.setTheme('default-dark');
+      themeManager.setTheme(DEFAULT_DARK_THEME_ID);
       themeManager.applyToDOM(mockElement);
 
-      expect(mockElement.setAttribute).toHaveBeenCalledWith('data-theme', 'dark');
+      expect(mockElement.setAttribute).toHaveBeenCalledWith('data-theme', DEFAULT_DARK_THEME_ID);
     });
   });
 
@@ -630,7 +635,7 @@ describe('ThemeManager', () => {
 
       themeManager.applySystemTheme();
 
-      expect(themeManager.currentThemeId).toBe('default-dark');
+      expect(themeManager.currentThemeId).toBe(DEFAULT_DARK_THEME_ID);
 
       vi.unstubAllGlobals();
     });
@@ -640,10 +645,10 @@ describe('ThemeManager', () => {
         matchMedia: vi.fn().mockReturnValue({ matches: false }),
       });
 
-      themeManager.setTheme('default-dark');
+      themeManager.setTheme(DEFAULT_DARK_THEME_ID);
       themeManager.applySystemTheme();
 
-      expect(themeManager.currentThemeId).toBe('default-light');
+      expect(themeManager.currentThemeId).toBe(DEFAULT_THEME_ID);
 
       vi.unstubAllGlobals();
     });
@@ -651,12 +656,35 @@ describe('ThemeManager', () => {
 
   describe('hasTheme', () => {
     it('应该返回 true 当主题存在', () => {
-      expect(themeManager.hasTheme('default-light')).toBe(true);
-      expect(themeManager.hasTheme('default-dark')).toBe(true);
+      expect(themeManager.hasTheme(DEFAULT_THEME_ID)).toBe(true);
+      expect(themeManager.hasTheme(DEFAULT_DARK_THEME_ID)).toBe(true);
     });
 
     it('应该返回 false 当主题不存在', () => {
       expect(themeManager.hasTheme('non-existent')).toBe(false);
+    });
+  });
+
+  describe('resolveThemeHierarchy', () => {
+    it('应该按六级优先级解析主题', () => {
+      const resolved = themeManager.resolveThemeHierarchy({
+        global: 'global.theme',
+        app: 'app.theme',
+        box: 'box.theme',
+        compositeCard: 'composite.theme',
+        baseCard: 'base-card.theme',
+        component: 'component.theme',
+      });
+
+      expect(resolved).toBe('component.theme');
+    });
+
+    it('应该兼容旧 default-light/default-dark 标识', () => {
+      const resolved = themeManager.resolveThemeHierarchy({
+        app: 'default-dark',
+      });
+
+      expect(resolved).toBe(DEFAULT_DARK_THEME_ID);
     });
   });
 
@@ -695,14 +723,14 @@ describe('ThemeManager', () => {
         },
       });
 
-      themeManager.setTheme('default-dark');
+      themeManager.setTheme(DEFAULT_DARK_THEME_ID);
 
       const docEl = document.documentElement as unknown as {
         style: { setProperty: ReturnType<typeof vi.fn> };
         setAttribute: ReturnType<typeof vi.fn>;
       };
       expect(docEl.style.setProperty).toHaveBeenCalled();
-      expect(docEl.setAttribute).toHaveBeenCalledWith('data-theme', 'dark');
+      expect(docEl.setAttribute).toHaveBeenCalledWith('data-theme', DEFAULT_DARK_THEME_ID);
 
       vi.unstubAllGlobals();
     });
@@ -719,7 +747,7 @@ describe('ThemeManager', () => {
         },
       });
 
-      noAutoManager.setTheme('default-dark');
+      noAutoManager.setTheme(DEFAULT_DARK_THEME_ID);
 
       const docEl = document.documentElement as unknown as {
         style: { setProperty: ReturnType<typeof vi.fn> };
@@ -766,7 +794,9 @@ describe('ThemeManager', () => {
 
       await themeManager.initializeTheme(mockBridge);
 
+      expect(mockBridge).toHaveBeenCalledWith('theme', 'getCurrent', {});
       expect(mockBridge).toHaveBeenCalledWith('theme', 'getAllCss', {});
+      expect(themeManager.getCSSVariables()['--a']).toBe('1');
 
       vi.unstubAllGlobals();
     });

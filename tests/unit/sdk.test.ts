@@ -475,7 +475,7 @@ describe('ChipsSDK', () => {
 
       it('应该设置已注册的主题', () => {
         // 设置默认主题应该不会抛出错误
-        expect(() => sdk.setTheme('default-light')).not.toThrow();
+        expect(() => sdk.setTheme('chips-official.default-theme')).not.toThrow();
       });
 
       it('设置不存在的主题不应该抛出错误（静默失败）', () => {

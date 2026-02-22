@@ -3,13 +3,13 @@
  */
 
 import { vi } from 'vitest';
-import type { CoreConnector } from '../../src/core/connector';
+import type { BridgeClient } from '../../src/bridge';
 import type { Logger } from '../../src/logger';
 import type { ConfigManager } from '../../src/config';
-import { MockCoreConnector } from './mock-connector';
+import { MockBridgeClient } from './mock-connector';
 
-export function createMockConnector(): CoreConnector {
-  return new MockCoreConnector() as unknown as CoreConnector;
+export function createMockConnector(): BridgeClient {
+  return new MockBridgeClient() as unknown as BridgeClient;
 }
 
 export function createMockLogger(): Logger {
@@ -45,5 +45,5 @@ export function createMockConfig(): ConfigManager {
   } as unknown as ConfigManager;
 }
 
-export { MockCoreConnector };
+export { MockBridgeClient, MockBridgeClient as MockCoreConnector };
 export { createTestCard, createTestBox, wait, createMockElement, expectError } from './test-utils';

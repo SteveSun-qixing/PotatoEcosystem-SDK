@@ -3,7 +3,7 @@
  * @module api/conversion-api
  */
 
-import { CoreConnector } from '../core';
+import { BridgeClient } from '../bridge';
 import { Logger } from '../logger';
 import { ConfigManager } from '../config';
 
@@ -218,7 +218,7 @@ export interface SupportedConversion {
  *
  * @example
  * ```typescript
- * const conversionApi = new ConversionAPI(connector, logger, config);
+ * const conversionApi = new ConversionAPI(bridge, logger, config);
  *
  * // 转换为 HTML
  * const htmlResult = await conversionApi.convertToHTML(
@@ -239,19 +239,19 @@ export interface SupportedConversion {
  * ```
  */
 export class ConversionAPI {
-  private _connector: CoreConnector;
+  private _bridge: BridgeClient;
   private _logger: Logger;
   private _config: ConfigManager;
   private _activeTasks: Map<string, { cancelled: boolean }> = new Map();
 
   /**
    * 创建转换 API
-   * @param connector - Core 连接器
+   * @param bridge - Bridge 客户端
    * @param logger - 日志实例
    * @param config - 配置管理器
    */
-  constructor(connector: CoreConnector, logger: Logger, config: ConfigManager) {
-    this._connector = connector;
+  constructor(bridge: BridgeClient, logger: Logger, config: ConfigManager) {
+    this._bridge = bridge;
     this._logger = logger.createChild('ConversionAPI');
     this._config = config;
   }
@@ -273,7 +273,7 @@ export class ConversionAPI {
     this._activeTasks.set(taskId, { cancelled: false });
 
     try {
-      const response = await this._connector.request<ConversionResult>({
+      const response = await this._bridge.request<ConversionResult>({
         service: 'conversion',
         method: 'convert',
         payload: {
@@ -336,7 +336,7 @@ export class ConversionAPI {
     this._activeTasks.set(taskId, { cancelled: false });
 
     try {
-      const response = await this._connector.request<ConversionResult>({
+      const response = await this._bridge.request<ConversionResult>({
         service: 'conversion',
         method: 'convert',
         payload: {
@@ -399,7 +399,7 @@ export class ConversionAPI {
     this._activeTasks.set(taskId, { cancelled: false });
 
     try {
-      const response = await this._connector.request<ConversionResult>({
+      const response = await this._bridge.request<ConversionResult>({
         service: 'conversion',
         method: 'convert',
         payload: {
@@ -449,7 +449,7 @@ export class ConversionAPI {
    * 导出为 .card 文件
    *
    * 将卡片数据打包为 .card 文件格式（ZIP 压缩）
-   * 通过 CoreConnector 路由到 Foundation 的 CardPacker 模块
+   * 通过 BridgeClient 路由到 Foundation 的 CardPacker 模块
    *
    * @param cardId - 卡片 ID
    * @param options - 导出选项
@@ -465,9 +465,9 @@ export class ConversionAPI {
     this._activeTasks.set(taskId, { cancelled: false });
 
     try {
-      // 通过 CoreConnector 请求卡片打包服务
+      // 通过 BridgeClient 请求卡片打包服务
       // Core 会路由到 Foundation.CardPacker
-      const response = await this._connector.request<ConversionResult>({
+      const response = await this._bridge.request<ConversionResult>({
         service: 'card.pack',
         method: 'pack',
         payload: {
@@ -524,7 +524,7 @@ export class ConversionAPI {
    */
   async getSupportedConversions(): Promise<SupportedConversion[]> {
     try {
-      const response = await this._connector.request<{
+      const response = await this._bridge.request<{
         conversions: SupportedConversion[];
       }>({
         service: 'conversion',
@@ -574,7 +574,7 @@ export class ConversionAPI {
     task.cancelled = true;
 
     try {
-      const response = await this._connector.request<{ cancelled: boolean }>({
+      const response = await this._bridge.request<{ cancelled: boolean }>({
         service: 'conversion',
         method: 'cancel',
         payload: { taskId },

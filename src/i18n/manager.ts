@@ -6,6 +6,7 @@
 import { Locale, Translation, I18nManagerOptions, PluralRules, LocaleChangeHandler } from './types';
 import type { Logger } from '../logger';
 import type { EventBus } from '../event';
+import { BridgeClient } from '../bridge';
 
 /**
  * 默认选项
@@ -91,6 +92,8 @@ export class I18nManager {
   private _changeHandlers = new Set<LocaleChangeHandler>();
   private _logger?: Logger;
   private _eventBus?: EventBus;
+  private _bridge?: BridgeClient;
+  private _bridgeLanguageSubscription?: () => void;
 
   /**
    * 创建多语言管理器
@@ -98,7 +101,12 @@ export class I18nManager {
    * @param logger - 日志实例（可选，用于调试日志）
    * @param eventBus - 事件总线（可选，用于发布语言变更事件）
    */
-  constructor(options?: I18nManagerOptions, logger?: Logger, eventBus?: EventBus) {
+  constructor(
+    options?: I18nManagerOptions,
+    logger?: Logger,
+    eventBus?: EventBus,
+    bridge?: BridgeClient
+  ) {
     this._options = { ...DEFAULT_OPTIONS, ...options };
     this._currentLocale = this._options.defaultLocale;
     this._logger = logger?.createChild('I18nManager');
@@ -112,6 +120,10 @@ export class I18nManager {
     for (const [locale, translation] of Object.entries(this._options.translations)) {
       this.addTranslation(locale, translation);
     }
+
+    if (bridge) {
+      this.bindBridge(bridge);
+    }
   }
 
   /**
@@ -119,9 +131,42 @@ export class I18nManager {
    * @param logger - 日志实例
    * @param eventBus - 事件总线
    */
-  bind(logger: Logger, eventBus: EventBus): void {
+  bind(logger: Logger, eventBus: EventBus, bridge?: BridgeClient): void {
     this._logger = logger.createChild('I18nManager');
     this._eventBus = eventBus;
+    if (bridge) {
+      this.bindBridge(bridge);
+    }
+  }
+
+  /**
+   * 绑定 Bridge 客户端
+   * @param bridge - Bridge 客户端
+   */
+  bindBridge(bridge: BridgeClient): void {
+    this._bridge = bridge;
+
+    if (this._bridgeLanguageSubscription) {
+      this._bridgeLanguageSubscription();
+    }
+
+    if (!bridge.isConnected) {
+      this._bridgeLanguageSubscription = undefined;
+      return;
+    }
+
+    this._bridgeLanguageSubscription = bridge.on('language.changed', (payload) => {
+      if (typeof payload !== 'object' || payload === null) {
+        return;
+      }
+      const language = (payload as Record<string, unknown>).language;
+      if (typeof language === 'string') {
+        const locale = language as Locale;
+        if (this.hasLocale(locale)) {
+          this.setLocale(locale);
+        }
+      }
+    });
   }
 
   /**
@@ -163,6 +208,22 @@ export class I18nManager {
     }
 
     return this._interpolate(translation, params);
+  }
+
+  /**
+   * 通过 Bridge 获取翻译（优先使用主机多语言系统）
+   * @param key - 翻译键
+   * @param params - 插值参数
+   */
+  async translate(key: string, params?: Record<string, string | number>): Promise<string> {
+    if (this._bridge) {
+      const text = await this._bridge.invoke<string>('i18n', 'translate', { key, params });
+      if (typeof text === 'string') {
+        return text;
+      }
+    }
+
+    return this.t(key, params);
   }
 
   /**
@@ -316,6 +377,16 @@ export class I18nManager {
       } catch (error) {
         console.error('[I18n] Locale change handler error:', error);
       }
+    }
+  }
+
+  /**
+   * 销毁资源
+   */
+  destroy(): void {
+    if (this._bridgeLanguageSubscription) {
+      this._bridgeLanguageSubscription();
+      this._bridgeLanguageSubscription = undefined;
     }
   }
 }

@@ -3,9 +3,10 @@
  * @module resource/manager
  */
 
-import { CoreConnector, ResourceError, ErrorCodes } from '../core';
+import { ResourceError, ErrorCodes } from '../core';
 import { Logger } from '../logger';
 import { EventBus } from '../event';
+import { BridgeClient } from '../bridge';
 import {
   ResourceType,
   ResourceInfo,
@@ -50,7 +51,7 @@ const MIME_TYPE_MAP: Record<string, ResourceType> = {
  *
  * @example
  * ```ts
- * const resourceManager = new ResourceManager(connector, logger, eventBus);
+ * const resourceManager = new ResourceManager(bridge, logger, eventBus);
  *
  * // 加载资源
  * const blob = await resourceManager.load('/path/to/image.png');
@@ -60,7 +61,7 @@ const MIME_TYPE_MAP: Record<string, ResourceType> = {
  * ```
  */
 export class ResourceManager {
-  private _connector: CoreConnector;
+  private _bridge: BridgeClient;
   private _cache = new Map<string, CacheEntry>();
   private _currentCacheSize = 0;
   private _logger: Logger;
@@ -70,18 +71,18 @@ export class ResourceManager {
 
   /**
    * 创建资源管理器
-   * @param connector - Core 连接器
+   * @param bridge - Bridge 客户端
    * @param logger - 日志实例
    * @param eventBus - 事件总线
    * @param options - 配置选项
    */
   constructor(
-    connector: CoreConnector,
+    bridge: BridgeClient,
     logger: Logger,
     eventBus: EventBus,
     options?: ResourceManagerOptions
   ) {
-    this._connector = connector;
+    this._bridge = bridge;
     this._logger = logger.createChild('ResourceManager');
     this._eventBus = eventBus;
     this._options = { ...DEFAULT_OPTIONS, ...options };
@@ -112,7 +113,7 @@ export class ResourceManager {
     this._logger.debug('Loading resource', { path });
 
     // 通过 Core 加载
-    const response = await this._connector.request<{ data: ArrayBuffer; info: ResourceInfo }>({
+    const response = await this._bridge.request<{ data: ArrayBuffer; info: ResourceInfo }>({
       service: 'resource',
       method: 'load',
       payload: { path },
@@ -148,7 +149,7 @@ export class ResourceManager {
       return this._cache.get(path)!.info;
     }
 
-    const response = await this._connector.request<ResourceInfo>({
+    const response = await this._bridge.request<ResourceInfo>({
       service: 'resource',
       method: 'info',
       payload: { path },
@@ -233,7 +234,7 @@ export class ResourceManager {
 
     const arrayBuffer = await file.arrayBuffer();
 
-    const response = await this._connector.request<ResourceInfo>({
+    const response = await this._bridge.request<ResourceInfo>({
       service: 'resource',
       method: 'upload',
       payload: {
@@ -268,7 +269,7 @@ export class ResourceManager {
     // 从缓存中移除
     this._removeFromCache(path);
 
-    const response = await this._connector.request({
+    const response = await this._bridge.request({
       service: 'resource',
       method: 'delete',
       payload: { path },

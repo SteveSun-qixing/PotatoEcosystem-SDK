@@ -10,6 +10,7 @@ export type { SDKState, ChipsSDKOptions, SDKVersion } from './sdk';
 
 // ========== 核心模块 ==========
 export {
+  BridgeClient,
   CoreConnector,
   ChipsError,
   ConnectionError,
@@ -26,6 +27,7 @@ export {
 
 export type {
   ErrorCode,
+  BridgeClientOptions,
   ConnectorOptions,
   RequestParams,
   ResponseData,
@@ -33,6 +35,17 @@ export type {
   IpcRequest,
   IpcResponse,
 } from './core';
+
+// ========== Bridge 模块 ==========
+export type {
+  ChipsBridgeError,
+  BridgeEventCallback,
+  BridgeUnsubscribe,
+  ChipsBridgeAPI,
+  BridgePluginAPI,
+  BridgePluginInfo,
+  BridgePluginSelfInfo,
+} from './bridge';
 
 // ========== 基础支撑模块 ==========
 export { Logger } from './logger';
@@ -130,7 +143,7 @@ export type {
 } from './resource';
 
 // ========== API 模块 ==========
-export { FileAPI, CardAPI, BoxAPI, ConversionAPI } from './api';
+export { FileAPI, CardAPI, BoxAPI, ConversionAPI, ImageViewerAPI } from './api';
 export type {
   FileInfo,
   LoadOptions,
@@ -158,7 +171,14 @@ export type {
   ConversionStats,
   ConversionResult,
   SupportedConversion,
+  ImageViewerFitMode,
+  ImageViewerOpenOptions,
+  ImageViewerSnapshot,
+  ImageViewerListItem,
 } from './api';
+
+// ========== Vue Composables ==========
+export { useTheme, useI18n, useCard, useConfig } from './composables';
 
 // ========== 类型定义 ==========
 export type {

@@ -3,19 +3,22 @@
  * @module sdk
  */
 
-import { CoreConnector, ChipsError, ErrorCodes, ConnectorOptions } from './core';
+import { ChipsError, ErrorCodes, BridgeClientOptions } from './core';
 import { Logger, LoggerOptions } from './logger';
 import { ConfigManager, ConfigManagerOptions } from './config';
 import { EventBus, EventBusOptions } from './event';
 import { I18nManager, I18nManagerOptions } from './i18n';
+import { BridgeClient } from './bridge';
 import { FileAPI } from './api/file-api';
 import { CardAPI } from './api/card-api';
 import { BoxAPI } from './api/box-api';
 import { ConversionAPI } from './api/conversion-api';
+import { ImageViewerAPI } from './api/image-viewer-api';
 import { PluginManager, PluginRegistration } from './plugin';
 import { ThemeManager, ThemeManagerOptions, Theme } from './theme';
 import { RendererEngine, RendererEngineOptions } from './renderer';
 import { ResourceManager, ResourceManagerOptions } from './resource';
+import { useTheme, useI18n, useCard, useConfig } from './composables';
 
 /**
  * SDK 状态
@@ -26,10 +29,14 @@ export type SDKState = 'idle' | 'initializing' | 'ready' | 'error' | 'destroyed'
  * SDK 配置选项
  */
 export interface ChipsSDKOptions {
-  /** Core 连接选项 */
-  connector?: ConnectorOptions;
-  /** 自定义 Core 连接器实例（用于本地桥接/测试） */
-  connectorInstance?: CoreConnector;
+  /** Bridge 客户端配置 */
+  bridge?: BridgeClientOptions;
+  /** 自定义 Bridge 客户端实例（用于测试） */
+  bridgeInstance?: BridgeClient;
+  /** @deprecated 兼容旧命名 */
+  connector?: BridgeClientOptions;
+  /** @deprecated 兼容旧命名 */
+  connectorInstance?: BridgeClient;
   /** 日志选项 */
   logger?: LoggerOptions;
   /** 配置选项 */
@@ -69,7 +76,7 @@ export interface SDKVersion {
  * ```ts
  * // 创建 SDK 实例
  * const sdk = new ChipsSDK({
- *   connector: { url: 'ws://localhost:9527' },
+ *   bridge: { timeout: 10000 },
  *   autoConnect: true,
  * });
  *
@@ -96,7 +103,7 @@ export class ChipsSDK {
   private _options: ChipsSDKOptions;
 
   // 核心组件
-  private _connector: CoreConnector;
+  private _bridge: BridgeClient;
   private _logger: Logger;
   private _config: ConfigManager;
   private _eventBus: EventBus;
@@ -107,6 +114,7 @@ export class ChipsSDK {
   private _cardApi!: CardAPI;
   private _boxApi!: BoxAPI;
   private _conversionApi!: ConversionAPI;
+  private _imageViewerApi!: ImageViewerAPI;
   private _pluginManager!: PluginManager;
   private _themeManager!: ThemeManager;
   private _rendererEngine!: RendererEngine;
@@ -124,7 +132,9 @@ export class ChipsSDK {
     this._config = new ConfigManager(options.config);
     this._eventBus = new EventBus(options.eventBus);
     this._i18n = new I18nManager(options.i18n);
-    this._connector = options.connectorInstance ?? new CoreConnector(options.connector);
+    const bridgeOptions = options.bridge ?? options.connector;
+    const bridgeInstance = options.bridgeInstance ?? options.connectorInstance;
+    this._bridge = bridgeInstance ?? new BridgeClient(bridgeOptions);
 
     // 设置调试模式
     if (options.debug) {
@@ -155,10 +165,10 @@ export class ChipsSDK {
     this._logger.info('Initializing SDK...');
 
     try {
-      // 连接到 Core
+      // 连接到 Bridge
       if (this._options.autoConnect !== false) {
-        await this._connector.connect();
-        this._logger.info('Connected to Core');
+        await this._bridge.connect();
+        this._logger.info('Connected to Bridge');
       }
 
       // 初始化配置
@@ -208,7 +218,7 @@ export class ChipsSDK {
     this._logger.info('Destroying SDK...');
 
     // 断开连接
-    this._connector.disconnect();
+    this._bridge.disconnect();
 
     // 清理资源
     if (this._resourceManager) {
@@ -237,15 +247,24 @@ export class ChipsSDK {
   }
 
   /**
-   * 连接到 Core
+   * 连接到 Bridge
    */
   async connect(): Promise<void> {
-    if (this._connector.isConnected) {
+    if (this._bridge.isConnected) {
       return;
     }
 
-    await this._connector.connect();
-    this._logger.info('Connected to Core');
+    await this._bridge.connect();
+    if (this._pluginManager) {
+      this._pluginManager.bindBridge(this._bridge);
+    }
+    if (this._i18n) {
+      this._i18n.bindBridge(this._bridge);
+    }
+    if (this._themeManager) {
+      this._themeManager.bindBridge(this._bridge);
+    }
+    this._logger.info('Connected to Bridge');
 
     await this._eventBus.emit('sdk:connected', {});
   }
@@ -254,8 +273,8 @@ export class ChipsSDK {
    * 断开连接
    */
   disconnect(): void {
-    this._connector.disconnect();
-    this._logger.info('Disconnected from Core');
+    this._bridge.disconnect();
+    this._logger.info('Disconnected from Bridge');
 
     this._eventBus.emitSync('sdk:disconnected', {});
   }
@@ -280,14 +299,21 @@ export class ChipsSDK {
    * 是否已连接
    */
   get isConnected(): boolean {
-    return this._connector.isConnected;
+    return this._bridge.isConnected;
   }
 
   /**
-   * 获取 Core 连接器
+   * 获取 Bridge 客户端
    */
-  get connector(): CoreConnector {
-    return this._connector;
+  get bridge(): BridgeClient {
+    return this._bridge;
+  }
+
+  /**
+   * 获取连接器（兼容旧命名）
+   */
+  get connector(): BridgeClient {
+    return this._bridge;
   }
 
   /**
@@ -351,6 +377,14 @@ export class ChipsSDK {
   }
 
   /**
+   * 获取图片查看器 API
+   */
+  get imageViewer(): ImageViewerAPI {
+    this._ensureReady();
+    return this._imageViewerApi;
+  }
+
+  /**
    * 获取插件管理器
    */
   get plugins(): PluginManager {
@@ -380,6 +414,23 @@ export class ChipsSDK {
   get resources(): ResourceManager {
     this._ensureReady();
     return this._resourceManager;
+  }
+
+  /**
+   * 获取 Vue composables
+   */
+  get composables(): {
+    useTheme: typeof useTheme;
+    useI18n: typeof useI18n;
+    useCard: typeof useCard;
+    useConfig: typeof useConfig;
+  } {
+    return {
+      useTheme,
+      useI18n,
+      useCard,
+      useConfig,
+    };
   }
 
   // ========== 便捷方法 ==========
@@ -462,11 +513,11 @@ export class ChipsSDK {
    */
   private _initializeModules(): void {
     // 文件 API
-    this._fileApi = new FileAPI(this._connector, this._logger, this._config);
+    this._fileApi = new FileAPI(this._bridge, this._logger, this._config);
 
     // 卡片 API
     this._cardApi = new CardAPI(
-      this._connector,
+      this._bridge,
       this._fileApi,
       this._logger,
       this._config,
@@ -475,7 +526,7 @@ export class ChipsSDK {
 
     // 箱子 API
     this._boxApi = new BoxAPI(
-      this._connector,
+      this._bridge,
       this._fileApi,
       this._logger,
       this._config,
@@ -483,16 +534,25 @@ export class ChipsSDK {
     );
 
     // 转换 API
-    this._conversionApi = new ConversionAPI(this._connector, this._logger, this._config);
+    this._conversionApi = new ConversionAPI(this._bridge, this._logger, this._config);
+
+    // 图片查看器 API
+    this._imageViewerApi = new ImageViewerAPI(this._bridge, this._logger, this._config);
 
     // 插件管理器
     this._pluginManager = new PluginManager(this._logger, this._eventBus, this._config);
+    this._pluginManager.bindBridge(this._bridge);
 
     // 多语言管理器绑定 Logger 和 EventBus（I18nManager 在构造函数中已创建，此处补充绑定）
-    this._i18n.bind(this._logger, this._eventBus);
+    this._i18n.bind(this._logger, this._eventBus, this._bridge);
 
     // 主题管理器
-    this._themeManager = new ThemeManager(this._logger, this._eventBus, this._options.theme);
+    this._themeManager = new ThemeManager(
+      this._logger,
+      this._eventBus,
+      this._options.theme,
+      this._bridge
+    );
 
     // 渲染引擎
     this._rendererEngine = new RendererEngine(
@@ -504,7 +564,7 @@ export class ChipsSDK {
 
     // 资源管理器
     this._resourceManager = new ResourceManager(
-      this._connector,
+      this._bridge,
       this._logger,
       this._eventBus,
       this._options.resource

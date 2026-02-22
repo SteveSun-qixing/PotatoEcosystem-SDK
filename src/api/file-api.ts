@@ -3,7 +3,8 @@
  * @module api/file-api
  */
 
-import { CoreConnector, FileError, ErrorCodes } from '../core';
+import { FileError, ErrorCodes } from '../core';
+import { BridgeClient } from '../bridge';
 import { Logger } from '../logger';
 import { ConfigManager } from '../config';
 import { Card, CardMetadata, CardStructure } from '../types/card';
@@ -45,7 +46,7 @@ const DEFAULT_SAVE_OPTIONS: Required<SaveOptions> = {
  *
  * @example
  * ```ts
- * const fileApi = new FileAPI(connector, logger, config);
+ * const fileApi = new FileAPI(bridge, logger, config);
  *
  * // 加载卡片
  * const card = await fileApi.loadCard('/path/to/card.card');
@@ -55,7 +56,7 @@ const DEFAULT_SAVE_OPTIONS: Required<SaveOptions> = {
  * ```
  */
 export class FileAPI {
-  private _connector: CoreConnector;
+  private _bridge: BridgeClient;
   private _logger: Logger;
   private _config: ConfigManager;
   private _cache = new Map<string, Card | Box>();
@@ -63,12 +64,12 @@ export class FileAPI {
 
   /**
    * 创建文件 API
-   * @param connector - Core 连接器
+   * @param bridge - Bridge 客户端
    * @param logger - 日志实例
    * @param config - 配置管理器
    */
-  constructor(connector: CoreConnector, logger: Logger, config: ConfigManager) {
-    this._connector = connector;
+  constructor(bridge: BridgeClient, logger: Logger, config: ConfigManager) {
+    this._bridge = bridge;
     this._logger = logger.createChild('FileAPI');
     this._config = config;
     this._cacheMaxSize = config.get('cache.maxSize', 100);
@@ -100,7 +101,7 @@ export class FileAPI {
     }
 
     // 通过 Core 加载文件
-    const response = await this._connector.request<RawFileData>({
+    const response = await this._bridge.request<RawFileData>({
       service: 'file',
       method: 'read',
       payload: {
@@ -170,7 +171,7 @@ export class FileAPI {
     const rawData = this._serializeCard(card);
 
     // 通过 Core 保存文件
-    const response = await this._connector.request({
+    const response = await this._bridge.request({
       service: 'file',
       method: 'write',
       payload: {
@@ -222,7 +223,7 @@ export class FileAPI {
     }
 
     // 通过 Core 加载文件
-    const response = await this._connector.request<RawFileData>({
+    const response = await this._bridge.request<RawFileData>({
       service: 'file',
       method: 'read',
       payload: { path },
@@ -288,7 +289,7 @@ export class FileAPI {
     const rawData = this._serializeBox(box);
 
     // 通过 Core 保存文件
-    const response = await this._connector.request({
+    const response = await this._bridge.request({
       service: 'file',
       method: 'write',
       payload: {
@@ -414,7 +415,7 @@ export class FileAPI {
   async validateFile(path: string, options?: ValidateOptions): Promise<FileValidationResult> {
     this._logger.debug('Validating file', { path });
 
-    const response = await this._connector.request<FileValidationResult>({
+    const response = await this._bridge.request<FileValidationResult>({
       service: 'file',
       method: 'validate',
       payload: { path, options },
@@ -443,7 +444,7 @@ export class FileAPI {
    * @param path - 文件路径
    */
   async getFileInfo(path: string): Promise<FileInfo> {
-    const response = await this._connector.request<FileInfo>({
+    const response = await this._bridge.request<FileInfo>({
       service: 'file',
       method: 'info',
       payload: { path },
@@ -471,7 +472,7 @@ export class FileAPI {
    * @param overwrite - 是否覆盖
    */
   async copy(sourcePath: string, destPath: string, overwrite = false): Promise<void> {
-    const response = await this._connector.request({
+    const response = await this._bridge.request({
       service: 'file',
       method: 'copy',
       payload: { sourcePath, destPath, overwrite },
@@ -492,7 +493,7 @@ export class FileAPI {
    * @param overwrite - 是否覆盖
    */
   async move(sourcePath: string, destPath: string, overwrite = false): Promise<void> {
-    const response = await this._connector.request({
+    const response = await this._bridge.request({
       service: 'file',
       method: 'move',
       payload: { sourcePath, destPath, overwrite },
@@ -520,7 +521,7 @@ export class FileAPI {
    * @param path - 文件路径
    */
   async delete(path: string): Promise<void> {
-    const response = await this._connector.request({
+    const response = await this._bridge.request({
       service: 'file',
       method: 'delete',
       payload: { path },
@@ -565,7 +566,7 @@ export class FileAPI {
    * 检查文件是否存在
    */
   private async _checkFileExists(path: string): Promise<boolean> {
-    const response = await this._connector.request<boolean>({
+    const response = await this._bridge.request<boolean>({
       service: 'file',
       method: 'exists',
       payload: { path },
@@ -578,7 +579,7 @@ export class FileAPI {
    */
   private async _parseCard(data: RawFileData, path: string): Promise<Card> {
     // 通过 Core 解析 YAML
-    const metadataResponse = await this._connector.request<CardMetadata>({
+    const metadataResponse = await this._bridge.request<CardMetadata>({
       service: 'parser',
       method: 'parseYaml',
       payload: { content: data.metadata },
@@ -590,7 +591,7 @@ export class FileAPI {
       });
     }
 
-    const structureResponse = await this._connector.request<CardStructure>({
+    const structureResponse = await this._bridge.request<CardStructure>({
       service: 'parser',
       method: 'parseYaml',
       payload: { content: data.structure },
@@ -614,7 +615,7 @@ export class FileAPI {
    * 解析箱子数据
    */
   private async _parseBox(data: RawFileData, path: string): Promise<Box> {
-    const metadataResponse = await this._connector.request<BoxMetadata>({
+    const metadataResponse = await this._bridge.request<BoxMetadata>({
       service: 'parser',
       method: 'parseYaml',
       payload: { content: data.metadata },
@@ -626,13 +627,13 @@ export class FileAPI {
       });
     }
 
-    const structureResponse = await this._connector.request<BoxStructure>({
+    const structureResponse = await this._bridge.request<BoxStructure>({
       service: 'parser',
       method: 'parseYaml',
       payload: { content: data.structure },
     });
 
-    const contentResponse = await this._connector.request<BoxContent>({
+    const contentResponse = await this._bridge.request<BoxContent>({
       service: 'parser',
       method: 'parseYaml',
       payload: { content: data.content },

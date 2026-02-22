@@ -54,13 +54,17 @@
   },
   "peerDependencies": {
     "@chips/core": "^1.0.0",
-    "@chips/foundation": "^1.0.0"
+    "@chips/foundation": "^1.0.0",
+    "vue": "^3.5.0"
   },
   "peerDependenciesMeta": {
     "@chips/core": {
       "optional": true
     },
     "@chips/foundation": {
+      "optional": true
+    },
+    "vue": {
       "optional": true
     }
   },

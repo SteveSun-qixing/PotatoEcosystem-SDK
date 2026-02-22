@@ -3,157 +3,82 @@
  * @module core/types
  */
 
-import { ProtocolVersion, Timestamp } from '../types/base';
-
 /**
- * IPC 消息类型
+ * Bridge 通信消息类型
  */
-export type MessageType =
-  | 'Route'
-  | 'Publish'
-  | 'Subscribe'
-  | 'Unsubscribe'
-  | 'ConfigGet'
-  | 'ConfigSet'
-  | 'Status'
-  | 'Heartbeat';
+export type MessageType = 'invoke' | 'emit' | 'event';
 
 /**
- * IPC 请求消息
+ * Bridge 调用请求
  */
 export interface IpcRequest {
-  /** 请求 ID */
-  id: string;
-  /** 消息类型 */
-  message_type: MessageType;
-  /** 载荷 */
-  payload: RoutePayload | PublishPayload | SubscribePayload | ConfigPayload;
-  /** 时间戳 */
-  timestamp: Timestamp;
-  /** 协议版本 */
-  protocol_version?: ProtocolVersion;
-}
-
-/**
- * 路由请求载荷
- */
-export interface RoutePayload {
-  /** 发送者 ID */
-  sender: string;
-  /** 操作（service.method 格式） */
+  requestId: string;
+  namespace: string;
   action: string;
-  /** 参数 */
-  params: Record<string, unknown>;
-  /** 超时时间（毫秒） */
-  timeout_ms?: number;
+  params?: unknown;
+  timestamp: number;
 }
 
 /**
- * 发布事件载荷
+ * Bridge 调用响应
  */
-export interface PublishPayload {
-  /** 事件类型 */
-  event_type: string;
-  /** 发送者 ID */
-  sender: string;
-  /** 数据 */
-  data: Record<string, unknown>;
-}
-
-/**
- * 订阅事件载荷
- */
-export interface SubscribePayload {
-  /** 订阅者 ID */
-  subscriber_id: string;
-  /** 事件类型 */
-  event_type: string;
-  /** 过滤条件 */
-  filter?: Record<string, unknown>;
-}
-
-/**
- * 配置操作载荷
- */
-export interface ConfigPayload {
-  /** 配置键 */
-  key: string;
-  /** 配置值 */
-  value?: unknown;
-}
-
-/**
- * IPC 响应消息
- */
-export interface IpcResponse {
-  /** 请求 ID */
-  request_id: string;
-  /** 是否成功 */
+export interface IpcResponse<T = unknown> {
+  requestId: string;
   success: boolean;
-  /** 数据 */
-  data?: unknown;
-  /** 错误信息 */
-  error?: string;
-  /** 时间戳 */
-  timestamp: Timestamp;
+  data?: T;
+  error?: {
+    code: string;
+    message: string;
+    details?: unknown;
+  };
+  timestamp: number;
+  durationMs?: number;
 }
 
 /**
- * 事件推送消息
+ * 事件消息
  */
 export interface EventMessage {
-  /** 消息类型 */
-  type: 'event';
-  /** 事件类型 */
-  event_type: string;
-  /** 发送者 */
-  sender: string;
-  /** 数据 */
-  data: Record<string, unknown>;
-  /** 时间戳 */
-  timestamp: Timestamp;
+  event: string;
+  data?: unknown;
+  source?: string;
+  timestamp: number;
 }
 
 /**
- * 请求参数
+ * 兼容旧 SDK 的请求参数
  */
 export interface RequestParams {
-  /** 服务名 */
   service: string;
-  /** 方法名 */
   method: string;
-  /** 载荷 */
   payload: Record<string, unknown>;
-  /** 超时时间（毫秒） */
   timeout?: number;
 }
 
 /**
- * 响应数据
+ * 兼容旧 SDK 的响应结构
  */
 export interface ResponseData<T = unknown> {
-  /** 是否成功 */
   success: boolean;
-  /** 数据 */
   data?: T;
-  /** 错误信息 */
   error?: string;
 }
 
 /**
- * 连接选项
+ * Bridge 客户端配置
  */
-export interface ConnectorOptions {
-  /** 连接地址 */
-  url?: string;
-  /** 默认超时（毫秒） */
+export interface BridgeClientOptions {
   timeout?: number;
-  /** 是否自动重连 */
-  reconnect?: boolean;
-  /** 重连延迟（毫秒） */
-  reconnectDelay?: number;
-  /** 最大重连次数 */
-  maxReconnectAttempts?: number;
-  /** 心跳间隔（毫秒） */
-  heartbeatInterval?: number;
+  enforceBridge?: boolean;
+  bridge?: {
+    invoke<T = unknown>(namespace: string, action: string, params?: unknown): Promise<T>;
+    on(event: string, callback: (payload: unknown) => void): () => void;
+    once?(event: string, callback: (payload: unknown) => void): () => void;
+    emit(event: string, data?: unknown): void;
+  };
 }
+
+/**
+ * 兼容旧命名（ConnectorOptions -> BridgeClientOptions）
+ */
+export type ConnectorOptions = BridgeClientOptions;
